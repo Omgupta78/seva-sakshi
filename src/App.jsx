@@ -1,7 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import {
-  FolderKanban,
-  Building2,
   Video,
   ClipboardList,
   UserCheck,
@@ -18,6 +16,9 @@ import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import OfficerLayout from './pages/officer/OfficerLayout.jsx'
 import OfficerDashboard from './pages/officer/OfficerDashboard.jsx'
+import ProjectsList from './pages/officer/ProjectsList.jsx'
+import ProjectDetails from './pages/officer/ProjectDetails.jsx'
+import OrganizationsList from './pages/officer/OrganizationsList.jsx'
 import ComingSoon from './components/officer/ComingSoon.jsx'
 
 export default function App() {
@@ -49,8 +50,10 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<OfficerDashboard />} />
-            <Route path="projects" element={<ComingSoon title="Projects" icon={FolderKanban} />} />
-            <Route path="institutes" element={<ComingSoon title="Institutes / NGOs" icon={Building2} />} />
+            <Route path="projects" element={<ProjectsList />} />
+            <Route path="projects/:id" element={<ProjectDetails />} />
+            <Route path="institutes" element={<OrganizationsList category="institute" />} />
+            <Route path="ngos" element={<OrganizationsList category="ngo" />} />
             <Route path="cctv" element={<ComingSoon title="Live CCTV" icon={Video} />} />
             <Route path="inspections" element={<ComingSoon title="Inspections" icon={ClipboardList} />} />
             <Route path="inspection-assignment" element={<ComingSoon title="Inspection Assignment" icon={UserCheck} />} />
