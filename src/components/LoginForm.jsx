@@ -1,9 +1,12 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { IdCard, Lock, Loader2, ShieldCheck } from 'lucide-react'
 import FormInput from './FormInput.jsx'
 import DepartmentSelect from './DepartmentSelect.jsx'
 import Captcha, { generateCaptcha } from './Captcha.jsx'
 import Alert from './Alert.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
+import { CURRENT_USER } from '../data/dashboardSampleData.js'
 
 /**
  * ---------------------------------------------------------------------
@@ -51,6 +54,8 @@ const initialFormState = {
 }
 
 export default function LoginForm({ onForgotPassword }) {
+  const navigate = useNavigate()
+  const { login } = useAuth()
   const [form, setForm] = useState(initialFormState)
   const [errors, setErrors] = useState({})
   const [captchaCode, setCaptchaCode] = useState(() => generateCaptcha())
@@ -96,11 +101,11 @@ export default function LoginForm({ onForgotPassword }) {
     setIsSubmitting(true)
     try {
       await authenticate(form)
-      setSuccessMessage(
-        'Login successful (demo). In a real deployment this would redirect to your department dashboard.'
-      )
+      setSuccessMessage(`Login successful. Redirecting to your dashboard, ${CURRENT_USER.name}…`)
       setForm(initialFormState)
       refreshCaptcha()
+      login({ ...CURRENT_USER, department: form.department })
+      setTimeout(() => navigate('/dashboard'), 700)
     } catch (err) {
       setLoginError(err.message)
       refreshCaptcha()

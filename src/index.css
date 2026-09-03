@@ -32,6 +32,19 @@
   --color-teal-100: #86f2e4;
   --color-amber-500: #f59e0b;
   --color-green-600: #138808;
+
+  /* Dashboard design system (per the shared spec: deep indigo header
+     gradient + light-neutral content area — kept as its own token set
+     so the existing Landing/Login pages are untouched). */
+  --color-plum-950: #161138;
+  --color-plum-900: #241452;
+  --color-plum-800: #3a1d70;
+  --color-plum-700: #4c2a8c;
+  --color-plum-100: #e9e4f5;
+  --color-plum-50: #f1eef9;
+  --color-paper-50: #f6f4ec;
+  --color-paper-100: #efece0;
+  --color-watch-500: #e2a610;
 }
 
 html {
