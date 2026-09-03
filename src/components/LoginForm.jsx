@@ -105,7 +105,7 @@ export default function LoginForm({ onForgotPassword }) {
       setForm(initialFormState)
       refreshCaptcha()
       login({ ...CURRENT_USER, department: form.department })
-      setTimeout(() => navigate('/dashboard'), 700)
+      setTimeout(() => navigate('/officer/dashboard'), 700)
     } catch (err) {
       setLoginError(err.message)
       refreshCaptcha()
