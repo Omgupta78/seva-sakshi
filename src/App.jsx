@@ -1,14 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import {
-  Video,
-  ClipboardList,
-  UserCheck,
-  CalendarCheck,
-  BrainCircuit,
-  FileBarChart,
-  Bell,
-  Settings,
-} from 'lucide-react'
+import { Video, CalendarCheck, BrainCircuit, FileBarChart, Bell, Settings } from 'lucide-react'
 import { AuthProvider } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import Landing from './pages/Landing.jsx'
@@ -19,6 +10,10 @@ import OfficerDashboard from './pages/officer/OfficerDashboard.jsx'
 import ProjectsList from './pages/officer/ProjectsList.jsx'
 import ProjectDetails from './pages/officer/ProjectDetails.jsx'
 import OrganizationsList from './pages/officer/OrganizationsList.jsx'
+import InspectionsList from './pages/officer/InspectionsList.jsx'
+import InspectionDetails from './pages/officer/InspectionDetails.jsx'
+import CreateInspectionPage from './pages/officer/CreateInspectionPage.jsx'
+import InspectionAssignmentPage from './pages/officer/InspectionAssignmentPage.jsx'
 import ComingSoon from './components/officer/ComingSoon.jsx'
 
 export default function App() {
@@ -55,8 +50,10 @@ export default function App() {
             <Route path="institutes" element={<OrganizationsList category="institute" />} />
             <Route path="ngos" element={<OrganizationsList category="ngo" />} />
             <Route path="cctv" element={<ComingSoon title="Live CCTV" icon={Video} />} />
-            <Route path="inspections" element={<ComingSoon title="Inspections" icon={ClipboardList} />} />
-            <Route path="inspection-assignment" element={<ComingSoon title="Inspection Assignment" icon={UserCheck} />} />
+            <Route path="inspections" element={<InspectionsList />} />
+            <Route path="inspections/create" element={<CreateInspectionPage />} />
+            <Route path="inspections/:id" element={<InspectionDetails />} />
+            <Route path="inspection-assignment" element={<InspectionAssignmentPage />} />
             <Route path="attendance" element={<ComingSoon title="Attendance" icon={CalendarCheck} />} />
             <Route path="ai-analytics" element={<ComingSoon title="AI Analytics" icon={BrainCircuit} />} />
             <Route path="reports" element={<ComingSoon title="Reports" icon={FileBarChart} />} />

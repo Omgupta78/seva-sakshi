@@ -59,3 +59,54 @@ const CCTV_LABEL = { online: 'Online', offline: 'Offline', partial: 'Partial' }
 export function CctvStatusBadge({ status }) {
   return <span className={`${base} ${CCTV_STYLES[status] ?? CCTV_STYLES.partial}`}>{CCTV_LABEL[status] ?? status}</span>
 }
+
+const INSPECTION_STATUS_STYLES = {
+  pending: 'bg-gray-100 text-gray-600 border-gray-300',
+  assigned: 'bg-plum-50 text-plum-800 border-plum-800/20',
+  scheduled: 'bg-blue-50 text-blue-700 border-blue-300',
+  'in-progress': 'bg-amber-50 text-[#a15c00] border-[#e2a610]/35',
+  completed: 'bg-green-50 text-[#16794f] border-[#138808]/25',
+  overdue: 'bg-red-50 text-[#D6262B] border-[#D6262B]/25',
+  cancelled: 'bg-gray-100 text-gray-500 border-gray-300 line-through',
+}
+const INSPECTION_STATUS_LABEL = {
+  pending: 'Pending',
+  assigned: 'Assigned',
+  scheduled: 'Scheduled',
+  'in-progress': 'In Progress',
+  completed: 'Completed',
+  overdue: 'Overdue',
+  cancelled: 'Cancelled',
+}
+
+export function InspectionStatusBadge({ status }) {
+  return <span className={`${base} ${INSPECTION_STATUS_STYLES[status] ?? INSPECTION_STATUS_STYLES.pending}`}>{INSPECTION_STATUS_LABEL[status] ?? status}</span>
+}
+
+const PRIORITY_STYLES = {
+  low: 'bg-gray-100 text-gray-600 border-gray-300',
+  medium: 'bg-amber-50 text-[#a15c00] border-[#e2a610]/35',
+  high: 'bg-red-50 text-[#D6262B] border-[#D6262B]/25',
+}
+
+export function PriorityBadge({ priority }) {
+  return <span className={`${base} ${PRIORITY_STYLES[priority] ?? PRIORITY_STYLES.medium} capitalize`}>{priority}</span>
+}
+
+const CHECKLIST_ITEM_STYLES = {
+  compliant: 'bg-green-50 text-[#16794f] border-[#138808]/25',
+  'partially-compliant': 'bg-amber-50 text-[#a15c00] border-[#e2a610]/35',
+  'non-compliant': 'bg-red-50 text-[#D6262B] border-[#D6262B]/25',
+  'not-applicable': 'bg-gray-100 text-gray-500 border-gray-300',
+}
+const CHECKLIST_ITEM_LABEL = {
+  compliant: 'Compliant',
+  'partially-compliant': 'Partially Compliant',
+  'non-compliant': 'Non-Compliant',
+  'not-applicable': 'Not Applicable',
+}
+
+export function ChecklistItemBadge({ status }) {
+  if (!status) return <span className={`${base} bg-gray-50 text-gray-400 border-gray-200`}>Not Assessed</span>
+  return <span className={`${base} ${CHECKLIST_ITEM_STYLES[status]}`}>{CHECKLIST_ITEM_LABEL[status] ?? status}</span>
+}
