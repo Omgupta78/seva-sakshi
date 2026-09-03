@@ -19,8 +19,8 @@ export default function Header() {
           className="flex items-center gap-3.5 rounded-lg transition-opacity hover:opacity-90 sm:gap-4"
           aria-label="Back to Seva Sakshi portal home"
         >
-          <div className="flex shrink-0 flex-col items-center">
-            <EmblemMark className="h-11 w-11 sm:h-14 sm:w-14" />
+          <div className="flex w-11 shrink-0 flex-col items-center sm:w-14">
+            <EmblemMark className="h-11 w-auto sm:h-14" />
             <p className="mt-0.5 text-[9px] leading-none text-saffron-500 sm:text-[10px]" lang="hi">
               सत्यमेव जयते
             </p>

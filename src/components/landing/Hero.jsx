@@ -1,6 +1,7 @@
 import { Search, ArrowRight, Video, ClipboardList, LayoutGrid, CalendarCheck, AlertTriangle } from 'lucide-react'
 import { useLang } from '../../context/LangContext.jsx'
 import { useHeroBackgroundRotation } from '../../hooks/useHeroBackgroundRotation.js'
+import EmblemMark from '../EmblemMark.jsx'
 
 const QUICK_ACCESS = [
   { key: 'pillCctv', icon: Video },
@@ -43,18 +44,7 @@ export default function Hero({ hcMode }) {
       />
 
       <div className="relative w-full max-w-3xl text-center text-white">
-        {/* Self-contained placeholder emblem (swap for the official State Emblem of India artwork if required) */}
-        <svg className="mx-auto mb-2 h-15 w-15 drop-shadow-lg" viewBox="0 0 100 100" role="img" aria-label="State Emblem of India">
-          <circle cx="50" cy="50" r="47" fill="none" stroke="#F59E0B" strokeWidth="2.5" />
-          <circle cx="50" cy="50" r="38" fill="none" stroke="#F59E0B" strokeWidth="1.2" opacity=".7" />
-          <g stroke="#F59E0B" strokeWidth="1" opacity=".85">
-            <line x1="50" y1="12" x2="50" y2="88" />
-            <line x1="12" y1="50" x2="88" y2="50" />
-            <line x1="21.5" y1="21.5" x2="78.5" y2="78.5" />
-            <line x1="78.5" y1="21.5" x2="21.5" y2="78.5" />
-          </g>
-          <circle cx="50" cy="50" r="9" fill="#F59E0B" />
-        </svg>
+        <EmblemMark className="mx-auto mb-2 h-16 w-auto drop-shadow-lg" />
         <p className="mb-7 text-[0.8rem] tracking-[0.14em] text-[#f3d489]" lang="hi">
           सत्यमेव जयते
         </p>
