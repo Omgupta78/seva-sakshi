@@ -26,8 +26,8 @@ export function InspectionOverviewTab({ inspection }) {
       <div>
         <h3 className="mb-2 text-sm font-bold text-plum-950">Assignment & Schedule</h3>
         <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-          <Field label="Assigned Team" value={inspection.teamName} />
-          <Field label="Team Members" value={inspection.teamMembers.length > 0 ? inspection.teamMembers.join(', ') : '—'} />
+          <Field label={inspection.assignedInspectorId ? 'Assigned Inspector' : 'Assigned Team'} value={inspection.teamName} />
+          <Field label="Members" value={inspection.teamMembers.length > 0 ? inspection.teamMembers.join(', ') : '—'} />
           <Field label="Scheduled Date" value={inspection.scheduledDate} />
           <Field label="Inspection Type" value={typeLabel(inspection.type)} />
           <Field label="Last Updated" value={new Date(inspection.lastUpdated).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} />

@@ -1,21 +1,24 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { UserPlus, Eye } from 'lucide-react'
+import { Sparkles, Eye } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync.js'
 import { listUnassignedInspections } from '../../services/inspectionsService.js'
 import { typeLabel } from '../../data/inspectionModels.js'
 import DataTable from '../../components/officer/table/DataTable.jsx'
 import { PriorityBadge, RiskBadge, InspectionStatusBadge } from '../../components/officer/table/Badges.jsx'
-import AssignTeamDialog from '../../components/officer/inspection/AssignTeamDialog.jsx'
+import AiAssignmentDialog from '../../components/officer/assignment/AiAssignmentDialog.jsx'
+import AssignmentAuditLog from '../../components/officer/assignment/AssignmentAuditLog.jsx'
 
 /**
- * PMU assignment queue: every inspection with no team yet (typically
- * pending, occasionally overdue) — a focused view distinct from the
- * full /officer/inspections list, for the specific job of getting a
- * team on each one.
+ * PMU assignment queue: every inspection with no one assigned yet
+ * (typically pending, occasionally overdue) — a focused view distinct
+ * from the full /officer/inspections list, for the specific job of
+ * getting an inspector on each one via the AI-Assisted Random
+ * Inspection Assignment engine (or a reason-required manual override).
  */
 export default function InspectionAssignmentPage() {
   const [assigning, setAssigning] = useState(null)
+  const [auditKey, setAuditKey] = useState(0) // bump to force AssignmentAuditLog to refetch after an assignment
   const { data, loading, refetch } = useAsync(() => listUnassignedInspections(), [])
 
   const columns = [
@@ -38,9 +41,9 @@ export default function InspectionAssignmentPage() {
           <button
             type="button"
             onClick={() => setAssigning(r)}
-            className="flex items-center gap-1.5 rounded-lg bg-plum-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-plum-900"
+            className="flex items-center gap-1.5 rounded-lg bg-[#D6262B] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#a91f24]"
           >
-            <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
+            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
             Assign
           </button>
         </div>
@@ -49,23 +52,31 @@ export default function InspectionAssignmentPage() {
   ]
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-4">
+    <div className="mx-auto max-w-[1400px] space-y-6">
       <div>
         <h1 className="text-lg font-extrabold text-plum-950 sm:text-xl">Inspection Assignment</h1>
-        <p className="text-sm text-plum-950/60">Inspections awaiting a team — assign one to move them forward.</p>
+        <p className="text-sm text-plum-950/60">
+          Inspections awaiting an inspector — use AI-Assisted Random Inspection Assignment, or assign manually with a reason.
+        </p>
       </div>
 
       <div className="rounded-2xl border border-plum-950/10 bg-white p-4 shadow-sm sm:p-5">
-        <DataTable columns={columns} rows={data ?? []} loading={loading} emptyMessage="Nothing waiting on assignment — every inspection has a team." />
+        <DataTable columns={columns} rows={data ?? []} loading={loading} emptyMessage="Nothing waiting on assignment — every inspection has an inspector." />
+      </div>
+
+      <div>
+        <h2 className="mb-2 text-sm font-bold text-plum-950">Assignment Audit Log</h2>
+        <AssignmentAuditLog key={auditKey} />
       </div>
 
       {assigning && (
-        <AssignTeamDialog
+        <AiAssignmentDialog
           inspection={assigning}
           onClose={() => setAssigning(null)}
           onAssigned={() => {
             setAssigning(null)
             refetch()
+            setAuditKey((k) => k + 1)
           }}
         />
       )}

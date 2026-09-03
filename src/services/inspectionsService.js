@@ -20,15 +20,24 @@ function resolveInspection(insp) {
   const org = ORGANIZATIONS.find((o) => o.id === insp.organizationId)
   const location = LOCATIONS.find((l) => l.id === project?.locationId)
   const team = TEAMS.find((t) => t.id === insp.assignedTeamId)
+  // A direct inspector assignment (from the AI-assisted engine) takes display
+  // priority over a legacy team assignment when both are somehow present.
+  const teamName = insp.assignedInspectorName ? insp.assignedInspectorName : (team?.name ?? 'Unassigned')
   return {
     ...insp,
     projectName: project?.name ?? 'Unknown project',
     organizationName: org?.name ?? 'Unknown organization',
     district: location?.district ?? '—',
     state: location?.state ?? '—',
-    teamName: team?.name ?? 'Unassigned',
-    teamMembers: team?.members ?? [],
+    teamName,
+    teamMembers: insp.assignedInspectorName ? [insp.assignedInspectorName] : (team?.members ?? []),
   }
+}
+
+/** Who should be recorded as the "actor" for a lifecycle event — the assigned inspector if one exists, else the first team member. */
+function primaryActor(insp) {
+  if (insp.assignedInspectorName) return insp.assignedInspectorName
+  return TEAMS.find((t) => t.id === insp.assignedTeamId)?.members[0] ?? 'Inspector'
 }
 
 function appendTimeline(insp, stage, actor) {
@@ -86,10 +95,10 @@ export async function listInspections(params = {}) {
   return { items, total, page: safePage, pageSize, totalPages }
 }
 
-/** Pending inspections with no team assigned yet — the /officer/inspection-assignment queue. */
+/** Pending inspections with no one assigned yet (neither a team nor a direct inspector) — the /officer/inspection-assignment queue. */
 export async function listUnassignedInspections() {
   await delay()
-  return store.filter((i) => !i.assignedTeamId).map(resolveInspection)
+  return store.filter((i) => !i.assignedTeamId && !i.assignedInspectorId).map(resolveInspection)
 }
 
 export async function getInspection(id) {
@@ -151,11 +160,41 @@ export async function assignTeam(id, teamId) {
   return saveAndResolve(idx)
 }
 
+/** Direct inspector assignment (from the AI-Assisted Random Inspection Assignment engine) — sits alongside the legacy assignTeam(). */
+export async function assignInspector(id, inspector) {
+  await delay()
+  const idx = store.findIndex((i) => i.id === id)
+  if (idx === -1) throw new NotFoundError(`Inspection ${id} not found`)
+  let updated = {
+    ...store[idx],
+    assignedInspectorId: inspector.id,
+    assignedInspectorName: inspector.name,
+    status: store[idx].status === 'pending' ? 'assigned' : store[idx].status,
+  }
+  updated = appendTimeline(updated, 'assigned', 'Priya Sharma')
+  store[idx] = updated
+  return saveAndResolve(idx)
+}
+
+/**
+ * Read-only snapshot of every inspection, resolved, for the assignment
+ * engine to compute workload/rotation against. Not paginated/filtered —
+ * this is an internal cross-module read, not a UI-facing list call.
+ */
+export async function getInspectionsSnapshot() {
+  await delay(80)
+  return store.map(resolveInspection)
+}
+
+export function getTeamsById() {
+  return Object.fromEntries(TEAMS.map((t) => [t.id, t]))
+}
+
 export async function acceptInspection(id) {
   await delay()
   const idx = store.findIndex((i) => i.id === id)
   if (idx === -1) throw new NotFoundError(`Inspection ${id} not found`)
-  const actor = TEAMS.find((t) => t.id === store[idx].assignedTeamId)?.members[0] ?? 'Inspector'
+  const actor = primaryActor(store[idx])
   let updated = { ...store[idx], status: 'scheduled' }
   updated = appendTimeline(updated, 'accepted', actor)
   store[idx] = updated
@@ -166,7 +205,7 @@ export async function startInspection(id) {
   await delay()
   const idx = store.findIndex((i) => i.id === id)
   if (idx === -1) throw new NotFoundError(`Inspection ${id} not found`)
-  const actor = TEAMS.find((t) => t.id === store[idx].assignedTeamId)?.members[0] ?? 'Inspector'
+  const actor = primaryActor(store[idx])
   let updated = { ...store[idx], status: 'in-progress' }
   updated = appendTimeline(updated, 'started', actor)
   store[idx] = updated
@@ -197,7 +236,7 @@ export async function addEvidence(id, input) {
   const inspection = store[idx]
   const project = PROJECTS.find((p) => p.id === inspection.projectId)
   const location = LOCATIONS.find((l) => l.id === project?.locationId)
-  const actor = TEAMS.find((t) => t.id === inspection.assignedTeamId)?.members[0] ?? 'Inspector'
+  const actor = primaryActor(inspection)
 
   const evidenceItem = {
     id: `EVD-new-${Date.now()}`,
@@ -225,7 +264,7 @@ export async function submitReport(id, input) {
   const idx = store.findIndex((i) => i.id === id)
   if (idx === -1) throw new NotFoundError(`Inspection ${id} not found`)
   const inspection = store[idx]
-  const actor = TEAMS.find((t) => t.id === inspection.assignedTeamId)?.members[0] ?? 'Inspector'
+  const actor = primaryActor(inspection)
 
   const report = {
     summary: input.summary.trim(),

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ChevronLeft, UserPlus, CheckCircle, PlayCircle, XCircle } from 'lucide-react'
+import { ChevronLeft, Sparkles, CheckCircle, PlayCircle, XCircle } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync.js'
 import { getInspection, acceptInspection, startInspection, cancelInspection, updateChecklistItem } from '../../services/inspectionsService.js'
 import { InspectionStatusBadge, PriorityBadge, RiskBadge } from '../../components/officer/table/Badges.jsx'
@@ -9,7 +9,7 @@ import ChecklistPanel from '../../components/officer/inspection/ChecklistPanel.j
 import EvidencePanel from '../../components/officer/inspection/EvidencePanel.jsx'
 import ReportPanel from '../../components/officer/inspection/ReportPanel.jsx'
 import InspectionTimeline from '../../components/officer/inspection/InspectionTimeline.jsx'
-import AssignTeamDialog from '../../components/officer/inspection/AssignTeamDialog.jsx'
+import AiAssignmentDialog from '../../components/officer/assignment/AiAssignmentDialog.jsx'
 import ConfirmDialog from '../../components/officer/ConfirmDialog.jsx'
 
 const TABS = ['Overview', 'Checklist', 'Evidence', 'Report', 'Timeline', 'History']
@@ -71,8 +71,8 @@ export default function InspectionDetails() {
               onClick={() => setAssigning(true)}
               className="flex items-center gap-1.5 rounded-lg bg-plum-800 px-3.5 py-2 text-sm font-semibold text-white hover:bg-plum-900"
             >
-              <UserPlus className="h-4 w-4" aria-hidden="true" />
-              {inspection.assignedTeamId ? 'Reassign Team' : 'Assign Team'}
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              {inspection.assignedTeamId || inspection.assignedInspectorId ? 'Reassign' : 'Assign Inspector'}
             </button>
           )}
           {inspection.status === 'assigned' && (
@@ -148,7 +148,7 @@ export default function InspectionDetails() {
       </div>
 
       {assigning && (
-        <AssignTeamDialog
+        <AiAssignmentDialog
           inspection={inspection}
           onClose={() => setAssigning(false)}
           onAssigned={() => {

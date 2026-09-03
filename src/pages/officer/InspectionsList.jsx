@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Eye, UserPlus } from 'lucide-react'
+import { Eye, Sparkles } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync.js'
 import { listInspections } from '../../services/inspectionsService.js'
 import { typeLabel } from '../../data/inspectionModels.js'
@@ -8,7 +8,7 @@ import DataTable from '../../components/officer/table/DataTable.jsx'
 import Pagination from '../../components/officer/table/Pagination.jsx'
 import { InspectionStatusBadge, PriorityBadge, RiskBadge } from '../../components/officer/table/Badges.jsx'
 import InspectionFilters from '../../components/officer/inspection/InspectionFilters.jsx'
-import AssignTeamDialog from '../../components/officer/inspection/AssignTeamDialog.jsx'
+import AiAssignmentDialog from '../../components/officer/assignment/AiAssignmentDialog.jsx'
 
 const initialFilters = {
   search: '',
@@ -58,9 +58,9 @@ export default function InspectionsList() {
           <button type="button" onClick={() => navigate(`/officer/inspections/${r.id}`)} aria-label={`View ${r.id}`} className="rounded-lg p-1.5 text-plum-800 hover:bg-plum-50">
             <Eye className="h-4 w-4" aria-hidden="true" />
           </button>
-          {!r.assignedTeamId && (
-            <button type="button" onClick={() => setAssigning(r)} aria-label={`Assign team to ${r.id}`} className="rounded-lg p-1.5 text-plum-800 hover:bg-plum-50">
-              <UserPlus className="h-4 w-4" aria-hidden="true" />
+          {!r.assignedTeamId && !r.assignedInspectorId && (
+            <button type="button" onClick={() => setAssigning(r)} aria-label={`Assign inspector to ${r.id}`} className="rounded-lg p-1.5 text-plum-800 hover:bg-plum-50">
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
         </div>
@@ -92,7 +92,7 @@ export default function InspectionsList() {
       </div>
 
       {assigning && (
-        <AssignTeamDialog
+        <AiAssignmentDialog
           inspection={assigning}
           onClose={() => setAssigning(null)}
           onAssigned={() => {
