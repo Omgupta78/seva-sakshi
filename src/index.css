@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Deep navy — primary brand color */
+  --color-navy-950: #071d3e;
+  --color-navy-900: #0b2d5c;
+  --color-navy-800: #123a72;
+  --color-navy-700: #1a4685;
+  --color-navy-600: #2a5aa0;
+
+  /* Light blue — page background */
+  --color-sky-50: #f2f7fc;
+  --color-sky-100: #e6f0fa;
+  --color-sky-200: #d3e6f7;
+
+  /* Very subtle saffron/gold accent */
+  --color-saffron-500: #ff9933;
+  --color-saffron-600: #e2811f;
+  --color-gold-100: #fbeed7;
+
+  --color-success-600: #16794f;
+  --color-error-600: #c0271f;
+
+  /* Seva Sakshi landing-page palette (deep indigo, distinct from the
+     Department Login's navy, plus a teal secondary and amber accent) */
+  --color-indigo-950: #071233;
+  --color-indigo-900: #00236f;
+  --color-indigo-800: #1e3a8a;
+  --color-teal-700: #006a61;
+  --color-teal-100: #86f2e4;
+  --color-amber-500: #f59e0b;
+  --color-green-600: #138808;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: calc(16px * var(--fs-scale, 1));
+}
+
+body {
+  margin: 0;
+  background: var(--color-sky-50);
+  color: var(--color-navy-950);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Consistent, visible keyboard focus ring across the app */
+:focus-visible {
+  outline: 2px solid var(--color-navy-700);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
