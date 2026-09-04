@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { Bell, Settings } from 'lucide-react'
 import { AuthProvider } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import Landing from './pages/Landing.jsx'
@@ -27,12 +26,13 @@ import AlertsList from './pages/officer/analytics/AlertsList.jsx'
 import AlertDetail from './pages/officer/analytics/AlertDetail.jsx'
 import Reports from './pages/officer/Reports.jsx'
 import PrintableInspectionReport from './pages/officer/PrintableInspectionReport.jsx'
+import Notifications from './pages/officer/Notifications.jsx'
+import Settings from './pages/officer/Settings.jsx'
 import InspectorLayout from './pages/inspector/InspectorLayout.jsx'
 import InspectorHome from './pages/inspector/InspectorHome.jsx'
 import InspectorInspections from './pages/inspector/InspectorInspections.jsx'
 import InspectorInspectionDetail from './pages/inspector/InspectorInspectionDetail.jsx'
 import InspectorEvidence from './pages/inspector/InspectorEvidence.jsx'
-import ComingSoon from './components/officer/ComingSoon.jsx'
 
 export default function App() {
   return (
@@ -85,8 +85,8 @@ export default function App() {
             <Route path="alerts/:id" element={<AlertDetail />} />
             <Route path="reports" element={<Reports />} />
             <Route path="reports/inspection/:id" element={<PrintableInspectionReport />} />
-            <Route path="notifications" element={<ComingSoon title="Notifications" icon={Bell} />} />
-            <Route path="settings" element={<ComingSoon title="Settings" icon={Settings} />} />
+            <Route path="notifications" element={<Notifications />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
 
           {/* Field inspector workspace — mobile-first shell, same session gate. */}
