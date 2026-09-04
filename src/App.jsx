@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { BrainCircuit, FileBarChart, Bell, Settings } from 'lucide-react'
+import { FileBarChart, Bell, Settings } from 'lucide-react'
 import { AuthProvider } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import Landing from './pages/Landing.jsx'
@@ -22,6 +22,9 @@ import AttendanceHub from './pages/officer/attendance/AttendanceHub.jsx'
 import AttendanceLive from './pages/officer/attendance/AttendanceLive.jsx'
 import StudentsList from './pages/officer/attendance/StudentsList.jsx'
 import Enrollment from './pages/officer/attendance/Enrollment.jsx'
+import AnalyticsDashboard from './pages/officer/analytics/AnalyticsDashboard.jsx'
+import AlertsList from './pages/officer/analytics/AlertsList.jsx'
+import AlertDetail from './pages/officer/analytics/AlertDetail.jsx'
 import InspectorLayout from './pages/inspector/InspectorLayout.jsx'
 import InspectorHome from './pages/inspector/InspectorHome.jsx'
 import InspectorInspections from './pages/inspector/InspectorInspections.jsx'
@@ -75,7 +78,9 @@ export default function App() {
               <Route path="students" element={<StudentsList />} />
               <Route path="enrollment" element={<Enrollment />} />
             </Route>
-            <Route path="ai-analytics" element={<ComingSoon title="AI Analytics" icon={BrainCircuit} />} />
+            <Route path="analytics" element={<AnalyticsDashboard />} />
+            <Route path="alerts" element={<AlertsList />} />
+            <Route path="alerts/:id" element={<AlertDetail />} />
             <Route path="reports" element={<ComingSoon title="Reports" icon={FileBarChart} />} />
             <Route path="notifications" element={<ComingSoon title="Notifications" icon={Bell} />} />
             <Route path="settings" element={<ComingSoon title="Settings" icon={Settings} />} />
