@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { Video, CalendarCheck, BrainCircuit, FileBarChart, Bell, Settings } from 'lucide-react'
+import { CalendarCheck, BrainCircuit, FileBarChart, Bell, Settings } from 'lucide-react'
 import { AuthProvider } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import Landing from './pages/Landing.jsx'
@@ -14,6 +14,8 @@ import InspectionsList from './pages/officer/InspectionsList.jsx'
 import InspectionDetails from './pages/officer/InspectionDetails.jsx'
 import CreateInspectionPage from './pages/officer/CreateInspectionPage.jsx'
 import InspectionAssignmentPage from './pages/officer/InspectionAssignmentPage.jsx'
+import CctvMonitoring from './pages/officer/CctvMonitoring.jsx'
+import CctvCameraDetail from './pages/officer/CctvCameraDetail.jsx'
 import InspectorLayout from './pages/inspector/InspectorLayout.jsx'
 import InspectorHome from './pages/inspector/InspectorHome.jsx'
 import InspectorInspections from './pages/inspector/InspectorInspections.jsx'
@@ -54,7 +56,8 @@ export default function App() {
             <Route path="projects/:id" element={<ProjectDetails />} />
             <Route path="institutes" element={<OrganizationsList category="institute" />} />
             <Route path="ngos" element={<OrganizationsList category="ngo" />} />
-            <Route path="cctv" element={<ComingSoon title="Live CCTV" icon={Video} />} />
+            <Route path="cctv" element={<CctvMonitoring />} />
+            <Route path="cctv/:cameraId" element={<CctvCameraDetail />} />
             <Route path="inspections" element={<InspectionsList />} />
             <Route path="inspections/create" element={<CreateInspectionPage />} />
             <Route path="inspections/:id" element={<InspectionDetails />} />
