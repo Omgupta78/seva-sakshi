@@ -16,6 +16,7 @@ import CreateInspectionPage from './pages/officer/CreateInspectionPage.jsx'
 import InspectionAssignmentPage from './pages/officer/InspectionAssignmentPage.jsx'
 import CctvMonitoring from './pages/officer/CctvMonitoring.jsx'
 import CctvCameraDetail from './pages/officer/CctvCameraDetail.jsx'
+import VideoCheck from './pages/officer/VideoCheck.jsx'
 import InspectorLayout from './pages/inspector/InspectorLayout.jsx'
 import InspectorHome from './pages/inspector/InspectorHome.jsx'
 import InspectorInspections from './pages/inspector/InspectorInspections.jsx'
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="ngos" element={<OrganizationsList category="ngo" />} />
             <Route path="cctv" element={<CctvMonitoring />} />
             <Route path="cctv/:cameraId" element={<CctvCameraDetail />} />
+            <Route path="video-check" element={<VideoCheck />} />
             <Route path="inspections" element={<InspectionsList />} />
             <Route path="inspections/create" element={<CreateInspectionPage />} />
             <Route path="inspections/:id" element={<InspectionDetails />} />
