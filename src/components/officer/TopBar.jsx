@@ -4,7 +4,7 @@ import ProfileMenu from './ProfileMenu.jsx'
 
 export default function TopBar({ onOpenSidebar, user, alerts, onLogout }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-plum-950/10 bg-white/95 backdrop-blur">
+    <header className="no-print sticky top-0 z-30 border-b border-plum-950/10 bg-white/95 backdrop-blur">
       <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <button

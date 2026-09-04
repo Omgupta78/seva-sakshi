@@ -84,3 +84,20 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .cctv-flicker { animation: none; opacity: 0.85; }
 }
+
+/* Printing: hide app chrome and anything marked .no-print, and let a
+   .printable-report take over the page (used for exporting reports to PDF
+   via the browser's Print → Save as PDF). */
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff !important; }
+  .printable-report {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    padding: 0;
+    box-shadow: none !important;
+  }
+  .print-break { page-break-inside: avoid; }
+  @page { margin: 16mm; }
+}

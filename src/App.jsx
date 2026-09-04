@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { FileBarChart, Bell, Settings } from 'lucide-react'
+import { Bell, Settings } from 'lucide-react'
 import { AuthProvider } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import Landing from './pages/Landing.jsx'
@@ -25,6 +25,8 @@ import Enrollment from './pages/officer/attendance/Enrollment.jsx'
 import AnalyticsDashboard from './pages/officer/analytics/AnalyticsDashboard.jsx'
 import AlertsList from './pages/officer/analytics/AlertsList.jsx'
 import AlertDetail from './pages/officer/analytics/AlertDetail.jsx'
+import Reports from './pages/officer/Reports.jsx'
+import PrintableInspectionReport from './pages/officer/PrintableInspectionReport.jsx'
 import InspectorLayout from './pages/inspector/InspectorLayout.jsx'
 import InspectorHome from './pages/inspector/InspectorHome.jsx'
 import InspectorInspections from './pages/inspector/InspectorInspections.jsx'
@@ -81,7 +83,8 @@ export default function App() {
             <Route path="analytics" element={<AnalyticsDashboard />} />
             <Route path="alerts" element={<AlertsList />} />
             <Route path="alerts/:id" element={<AlertDetail />} />
-            <Route path="reports" element={<ComingSoon title="Reports" icon={FileBarChart} />} />
+            <Route path="reports" element={<Reports />} />
+            <Route path="reports/inspection/:id" element={<PrintableInspectionReport />} />
             <Route path="notifications" element={<ComingSoon title="Notifications" icon={Bell} />} />
             <Route path="settings" element={<ComingSoon title="Settings" icon={Settings} />} />
           </Route>
