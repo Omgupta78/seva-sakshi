@@ -14,6 +14,11 @@ import InspectionsList from './pages/officer/InspectionsList.jsx'
 import InspectionDetails from './pages/officer/InspectionDetails.jsx'
 import CreateInspectionPage from './pages/officer/CreateInspectionPage.jsx'
 import InspectionAssignmentPage from './pages/officer/InspectionAssignmentPage.jsx'
+import InspectorLayout from './pages/inspector/InspectorLayout.jsx'
+import InspectorHome from './pages/inspector/InspectorHome.jsx'
+import InspectorInspections from './pages/inspector/InspectorInspections.jsx'
+import InspectorInspectionDetail from './pages/inspector/InspectorInspectionDetail.jsx'
+import InspectorEvidence from './pages/inspector/InspectorEvidence.jsx'
 import ComingSoon from './components/officer/ComingSoon.jsx'
 
 export default function App() {
@@ -59,6 +64,21 @@ export default function App() {
             <Route path="reports" element={<ComingSoon title="Reports" icon={FileBarChart} />} />
             <Route path="notifications" element={<ComingSoon title="Notifications" icon={Bell} />} />
             <Route path="settings" element={<ComingSoon title="Settings" icon={Settings} />} />
+          </Route>
+
+          {/* Field inspector workspace — mobile-first shell, same session gate. */}
+          <Route
+            path="/inspector"
+            element={
+              <ProtectedRoute>
+                <InspectorLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<InspectorHome />} />
+            <Route path="inspections" element={<InspectorInspections />} />
+            <Route path="inspections/:id" element={<InspectorInspectionDetail />} />
+            <Route path="inspections/:id/evidence" element={<InspectorEvidence />} />
           </Route>
         </Routes>
       </BrowserRouter>

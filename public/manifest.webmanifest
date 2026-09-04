@@ -1,0 +1,19 @@
+{
+  "name": "Seva Sakshi Field Inspection",
+  "short_name": "Seva Sakshi",
+  "description": "Field inspection module for DoSJE inspection teams — worklist, on-site location check, evidence capture and reporting.",
+  "start_url": "/inspector",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f4ec",
+  "theme_color": "#161138",
+  "icons": [
+    {
+      "src": "/emblem-gold.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

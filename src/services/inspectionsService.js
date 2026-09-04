@@ -201,15 +201,60 @@ export async function acceptInspection(id) {
   return saveAndResolve(idx)
 }
 
-export async function startInspection(id) {
+/**
+ * Starts an inspection. `meta` is optional and comes from the mobile
+ * inspector module: { startedAt, coords, distanceKm, locationVerified }.
+ * The officer-side desktop button calls this with no meta, unchanged.
+ *
+ * If the inspection was still merely 'assigned' (never formally
+ * accepted), starting it in the field implies acceptance, so both
+ * timeline stages are recorded rather than leaving a gap.
+ */
+export async function startInspection(id, meta = null) {
   await delay()
   const idx = store.findIndex((i) => i.id === id)
   if (idx === -1) throw new NotFoundError(`Inspection ${id} not found`)
   const actor = primaryActor(store[idx])
   let updated = { ...store[idx], status: 'in-progress' }
+
+  if (updated.status !== 'cancelled' && !updated.timeline.some((t) => t.stage === 'accepted')) {
+    updated = appendTimeline(updated, 'accepted', actor)
+  }
+  if (meta) {
+    updated.startedAt = meta.startedAt ?? nowIso()
+    updated.startLocation = meta.coords ?? null
+    updated.startDistanceKm = meta.distanceKm ?? null
+    updated.locationVerified = meta.locationVerified ?? false
+  }
   updated = appendTimeline(updated, 'started', actor)
   store[idx] = updated
   return saveAndResolve(idx)
+}
+
+/**
+ * Staff/beneficiary verification notes from the field. Deliberately
+ * stores counts, roles and observations only — no names or identifying
+ * details of interviewees (see FieldVerificationForm.jsx).
+ */
+export async function saveFieldVerification(id, data) {
+  await delay(200)
+  const idx = store.findIndex((i) => i.id === id)
+  if (idx === -1) throw new NotFoundError(`Inspection ${id} not found`)
+  store[idx] = { ...store[idx], fieldVerification: { ...data, recordedAt: nowIso() }, lastUpdated: nowIso() }
+  return saveAndResolve(idx)
+}
+
+/** Every inspection assigned to this inspector — directly, or via a team they're a member of. */
+export async function listInspectionsForInspector(inspectorName) {
+  await delay()
+  return store
+    .filter((insp) => {
+      if (insp.assignedInspectorName === inspectorName) return true
+      const team = TEAMS.find((t) => t.id === insp.assignedTeamId)
+      return team?.members.includes(inspectorName) ?? false
+    })
+    .map(resolveInspection)
+    .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate))
 }
 
 export async function cancelInspection(id) {
@@ -244,10 +289,16 @@ export async function addEvidence(id, input) {
     description: input.description.trim(),
     fileRef: input.fileRef?.trim() || '',
     timestamp: nowIso(),
-    inspector: actor,
+    inspector: input.inspectorName ?? actor,
+    inspectorId: input.inspectorId ?? null,
     inspectionId: id,
     projectId: inspection.projectId,
     location: location?.district ?? '—',
+    // Captured on mobile: exact GPS at the moment of capture, plus a local
+    // object-URL preview. In production the blob uploads to storage and
+    // `previewUrl` becomes the stored file's URL.
+    coords: input.coords ?? null,
+    previewUrl: input.previewUrl ?? null,
   }
 
   const hasEvidenceStage = inspection.timeline.some((t) => t.stage === 'evidence-uploaded')

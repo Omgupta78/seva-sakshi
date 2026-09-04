@@ -51,6 +51,31 @@ function addDays(dateStr, days) {
   return d.toISOString().slice(0, 10)
 }
 
+function todayIso() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+/**
+ * Where an inspection sits on the calendar, by status — active work is
+ * near-term (so an inspector's "Today's Inspections" is meaningful and
+ * the data doesn't go stale), finished/abandoned work stays in the past.
+ */
+function scheduledDateFor(status, createdDate) {
+  switch (status) {
+    case 'in-progress':
+    case 'assigned':
+      return todayIso()
+    case 'scheduled':
+      return addDays(todayIso(), 1)
+    case 'pending':
+      return addDays(todayIso(), 3)
+    case 'overdue':
+      return addDays(todayIso(), -9)
+    default: // completed, cancelled — historical
+      return addDays(createdDate, 3)
+  }
+}
+
 /** Which timeline stages a given status implies have already happened. */
 const STAGES_REACHED = {
   pending: ['created'],
@@ -156,7 +181,7 @@ export const INSPECTIONS = INSPECTION_BASE.map((base, idx) => {
   const inspector = teamObj ? teamObj.members[seed % teamObj.members.length] : 'Unassigned'
 
   const createdDate = addDays('2026-08-15', seed)
-  const scheduledDate = addDays(createdDate, 3)
+  const scheduledDate = scheduledDateFor(base.status, createdDate)
   const requiredAreas = CHECKLIST_CATEGORIES.filter((_, i) => (i + seed) % 2 === 0).slice(0, 5)
   const lastStageTimeline = buildTimeline(base.status, createdDate, teamObj, inspector, seed)
 
