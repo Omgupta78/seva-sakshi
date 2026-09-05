@@ -7,6 +7,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { PERMISSIONS } from '../../data/rbac.js'
 import { getCamera, disableCamera, enableCamera, decommissionCamera, getCameraPlaybackTimeline, getCameraEventHistory } from '../../services/cctvService.js'
 import { getEvents as getAnalyticsEvents, DISCLAIMER as ANALYTICS_DISCLAIMER } from '../../services/videoAnalyticsProvider.js'
+import { getCameraHealth, STREAM_MODE_LABEL } from '../../services/streamProvider.js'
 import VideoPlayer from '../../components/officer/cctv/VideoPlayer.jsx'
 import CameraStatusBadge from '../../components/officer/cctv/CameraStatusBadge.jsx'
 import ActionMenu from '../../components/officer/ActionMenu.jsx'
@@ -25,6 +26,7 @@ export default function CctvCameraDetail() {
   const { data: timeline } = useAsync(() => getCameraPlaybackTimeline(cameraId), [cameraId])
   const { data: history } = useAsync(() => getCameraEventHistory(cameraId), [cameraId])
   const { data: aiEvents } = useAsync(() => getAnalyticsEvents(cameraId, { includeDemo: true }), [cameraId])
+  const { data: health } = useAsync(() => getCameraHealth(cameraId), [cameraId])
   const [action, setAction] = useState(null)
   const canManage = hasPermission(PERMISSIONS.CAMERA_DECOMMISSION)
 
@@ -96,9 +98,11 @@ export default function CctvCameraDetail() {
             </h2>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
               <Field label="Live status"><CameraStatusBadge status={camera.status} /></Field>
-              <Field label="Source protocol">{SOURCE_LABEL[camera.sourceProtocol] ?? camera.sourceProtocol}</Field>
+              <Field label="Stream mode"><span className="inline-flex items-center rounded-full border border-[#e2a610]/35 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-[#a15c00]">{camera.status === 'offline' ? 'Live feed unavailable' : STREAM_MODE_LABEL}</span></Field>
+              <Field label="Ingestion (server-side)">{SOURCE_LABEL[camera.sourceProtocol] ?? camera.sourceProtocol}</Field>
               <Field label="Delivered to browser as">{DELIVERY_LABEL[camera.sourceProtocol] ?? 'HLS'}</Field>
               <Field label="Resolution / FPS">{camera.resolution} · {camera.fps} fps</Field>
+              <Field label="Latency">{health ? (health.latency != null ? `${health.latency} ms` : '—') : '…'}</Field>
             </dl>
             <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-plum-50/70 p-2.5 text-[11px] text-plum-950/60">
               <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-plum-800" aria-hidden="true" />
