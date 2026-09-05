@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { Bell, ClipboardCheck, AlertTriangle, MapPin, Camera, User, ChevronRight, ShieldCheck, CalendarClock, History, ListChecks, Settings, LogOut, CheckCircle2 } from 'lucide-react'
+import { Bell, ClipboardCheck, AlertTriangle, MapPin, Camera, User, ChevronRight, ShieldCheck, CalendarClock, History, ListChecks, Settings, LogOut, CheckCircle2, Video } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useInspector } from '../../context/InspectorContext.jsx'
 import { useAsync } from '../../hooks/useAsync.js'
@@ -148,6 +148,7 @@ const MORE_LINKS = [
   { to: '/inspector/scheduled', label: 'Scheduled Inspections', icon: CalendarClock },
   { to: '/inspector/checklist', label: 'Inspection Checklist', icon: ListChecks },
   { to: '/inspector/attendance-verification', label: 'Attendance Verification', icon: MapPin },
+  { to: '/inspector/cameras', label: 'Site Cameras', icon: Video },
   { to: '/inspector/evidence', label: 'Evidence', icon: Camera },
   { to: '/inspector/history', label: 'Inspection History', icon: History },
   { to: '/inspector/notifications', label: 'Notifications', icon: Bell },

@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ChevronLeft, MapPin, Building2, FolderKanban, Radio, ShieldCheck, HeartPulse, Clock, PowerOff, Power, ArchiveX } from 'lucide-react'
+import { ChevronLeft, MapPin, Building2, FolderKanban, Radio, ShieldCheck, HeartPulse, Clock, PowerOff, Power, ArchiveX, Film, History } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { PERMISSIONS } from '../../data/rbac.js'
-import { getCamera, disableCamera, enableCamera, decommissionCamera } from '../../services/cctvService.js'
+import { getCamera, disableCamera, enableCamera, decommissionCamera, getCameraPlaybackTimeline, getCameraEventHistory } from '../../services/cctvService.js'
 import VideoPlayer from '../../components/officer/cctv/VideoPlayer.jsx'
 import CameraStatusBadge from '../../components/officer/cctv/CameraStatusBadge.jsx'
 import ActionMenu from '../../components/officer/ActionMenu.jsx'
@@ -21,6 +21,8 @@ export default function CctvCameraDetail() {
   const { hasPermission } = useAuth()
   const toast = useToast()
   const { data: camera, loading, error, refetch } = useAsync(() => getCamera(cameraId), [cameraId])
+  const { data: timeline } = useAsync(() => getCameraPlaybackTimeline(cameraId), [cameraId])
+  const { data: history } = useAsync(() => getCameraEventHistory(cameraId), [cameraId])
   const [action, setAction] = useState(null)
   const canManage = hasPermission(PERMISSIONS.CAMERA_DECOMMISSION)
 
@@ -102,6 +104,33 @@ export default function CctvCameraDetail() {
               and are never sent to the browser. The player receives only a short-lived, per-session playback token.
             </p>
           </div>
+
+          {/* Recorded playback timeline (deepened Department CCTV) */}
+          <div className="rounded-2xl border border-plum-950/10 bg-white p-4 shadow-sm sm:p-5">
+            <h2 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-plum-950">
+              <Film className="h-4 w-4 text-plum-800" aria-hidden="true" /> Recorded Playback
+              {timeline && <span className="ml-auto text-[11px] font-normal text-plum-950/45">last 12 h · {timeline.retentionDays}-day retention</span>}
+            </h2>
+            {!timeline ? (
+              <p className="py-4 text-center text-sm text-plum-950/50">Loading timeline…</p>
+            ) : (
+              <>
+                <div className="flex gap-1" role="list" aria-label="Recorded segments">
+                  {timeline.segments.map((seg) => {
+                    const t = new Date(seg.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    return (
+                      <button key={seg.start} type="button" role="listitem" disabled={!seg.available}
+                        title={seg.available ? `Play ${t}` : `No footage — gap at ${t}`}
+                        onClick={() => seg.available && toast.info(`Prototype: brokered clip for ${t} would play here.`)}
+                        className={`h-9 flex-1 rounded ${seg.available ? 'bg-plum-800/80 hover:bg-plum-800' : 'bg-plum-950/10 [background-image:repeating-linear-gradient(45deg,transparent,transparent_4px,rgba(214,38,43,0.25)_4px,rgba(214,38,43,0.25)_8px)]'} disabled:cursor-not-allowed`} />
+                    )
+                  })}
+                </div>
+                <div className="mt-1.5 flex justify-between text-[10px] text-plum-950/45"><span>12h ago</span><span>now</span></div>
+                <p className="mt-2 text-[11px] text-plum-950/50">{timeline.note} Red-hatched blocks are gaps (camera offline / unstable).</p>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Side info */}
@@ -156,6 +185,23 @@ export default function CctvCameraDetail() {
               </ul>
             )}
             <p className="mt-2 text-[11px] text-plum-950/45">Connectivity and device-health alerts only — no video-content analysis.</p>
+          </div>
+
+          {/* Event history (deepened Department CCTV) */}
+          <div className="rounded-2xl border border-plum-950/10 bg-white p-4 shadow-sm sm:p-5">
+            <h2 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-plum-950"><History className="h-4 w-4 text-plum-800" aria-hidden="true" /> Event History</h2>
+            {!history ? (
+              <p className="py-3 text-center text-sm text-plum-950/50">Loading…</p>
+            ) : (
+              <ol className="space-y-2.5">
+                {history.items.map((e, i) => (
+                  <li key={i} className="flex items-start gap-2.5">
+                    <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${e.severity === 'critical' ? 'bg-[#D6262B]' : e.severity === 'warning' ? 'bg-[#e2a610]' : 'bg-[#138808]'}`} />
+                    <div><p className="text-xs font-semibold text-plum-950">{e.event}</p><p className="text-[11px] text-plum-950/50">{formatDateTime(e.at)}</p></div>
+                  </li>
+                ))}
+              </ol>
+            )}
           </div>
         </div>
       </div>

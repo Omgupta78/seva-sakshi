@@ -61,6 +61,13 @@ export function requirePermission(permission) {
   }
 }
 
+/** Throw unless the active role holds AT LEAST ONE of `permissions`. */
+export function requireAnyPermission(permissions) {
+  if (!permissions.some((p) => roleHasPermission(activeRole, p))) {
+    throw new ForbiddenError(permissions.join(' | '))
+  }
+}
+
 export function activePermissions() {
   return permissionsForRole(activeRole)
 }

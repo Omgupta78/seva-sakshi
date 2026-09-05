@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LayoutGrid, List, Map, Bell, Play, ShieldCheck } from 'lucide-react'
+import { LayoutGrid, List, Map, Bell, Play, ShieldCheck, TrendingUp } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync.js'
-import { listCameras, getCctvHealth, getCctvFilterOptions, listCctvAlerts } from '../../services/cctvService.js'
+import { listCameras, getCctvHealth, getCctvFilterOptions, listCctvAlerts, getCctvAnalytics } from '../../services/cctvService.js'
 import StatCard from '../../components/officer/StatCard.jsx'
 import DataTable from '../../components/officer/table/DataTable.jsx'
 import CctvFilters from '../../components/officer/cctv/CctvFilters.jsx'
@@ -19,6 +19,7 @@ const TABS = [
   { id: 'list', label: 'Camera List', icon: List },
   { id: 'map', label: 'Map View', icon: Map },
   { id: 'alerts', label: 'Alerts', icon: Bell },
+  { id: 'analytics', label: 'Analytics', icon: TrendingUp },
 ]
 
 export default function CctvMonitoring() {
@@ -30,6 +31,7 @@ export default function CctvMonitoring() {
   const { data: health } = useAsync(() => getCctvHealth(), [])
   const { data: options } = useAsync(() => getCctvFilterOptions(), [])
   const { data: alertData, loading: alertsLoading } = useAsync(() => listCctvAlerts(), [])
+  const { data: analytics } = useAsync(() => getCctvAnalytics(), [])
 
   const cameras = camData?.items ?? []
   const alerts = alertData?.items ?? []
@@ -137,6 +139,37 @@ export default function CctvMonitoring() {
       {tab === 'map' && <CctvMap cameras={cameras} />}
 
       {tab === 'alerts' && <CctvAlertsPanel alerts={alerts} loading={alertsLoading} />}
+
+      {tab === 'analytics' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatCard label="Fleet Uptime" value={analytics ? `${analytics.uptimePct}%` : '—'} accent="#138808" />
+            <StatCard label="Total Cameras" value={health?.total ?? '—'} accent="#3a1d70" />
+            <StatCard label="Districts Covered" value={analytics?.districts.length ?? '—'} accent="#006a61" />
+            <StatCard label="Needs Attention" value={analytics ? analytics.districts.filter((d) => d.uptimePct < 100).length : '—'} emphasize />
+          </div>
+          <div className="rounded-2xl border border-plum-950/10 bg-white p-4 shadow-sm sm:p-5">
+            <h2 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-plum-950"><TrendingUp className="h-4 w-4 text-plum-800" aria-hidden="true" /> Camera health by district</h2>
+            {!analytics ? (
+              <p className="py-6 text-center text-sm text-plum-950/50">Loading analytics…</p>
+            ) : (
+              <div className="space-y-2.5">
+                {analytics.districts.map((d) => (
+                  <div key={d.district} className="flex items-center gap-3">
+                    <span className="w-28 shrink-0 truncate text-sm font-semibold text-plum-950">{d.district}</span>
+                    <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-plum-950/10">
+                      <div className={`h-full rounded-full ${d.uptimePct >= 90 ? 'bg-[#138808]' : d.uptimePct >= 60 ? 'bg-[#e2a610]' : 'bg-[#D6262B]'}`} style={{ width: `${d.uptimePct}%` }} />
+                    </div>
+                    <span className="w-10 shrink-0 text-right text-sm font-semibold text-plum-950">{d.uptimePct}%</span>
+                    <span className="w-24 shrink-0 text-right text-[11px] text-plum-950/55">{d.online}/{d.total} online</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="mt-3 text-[11px] text-plum-950/50">Device-health uptime only (online ÷ total). No video-content analysis.</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

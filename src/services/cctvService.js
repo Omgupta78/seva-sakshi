@@ -126,6 +126,65 @@ export async function decommissionCamera(id, reason) {
   return cam
 }
 
+/**
+ * Recorded-playback timeline for one camera (Department deepen feature).
+ * Returns brokered, safe segment descriptors for the last `hours` — an offline
+ * camera has a gap for its most recent block (no footage while it was down).
+ * There is no real recorder here, so segments carry no URL; a real gateway
+ * would return short-lived HLS clip URLs per segment.
+ */
+export async function getCameraPlaybackTimeline(id, { hours = 12, blockHours = 2 } = {}) {
+  requirePermission(PERMISSIONS.VIEW_CCTV)
+  await delay(180)
+  const cam = store.find((c) => c.id === id)
+  if (!cam) throw new NotFoundError(`Camera ${id} not found`)
+  const now = Date.now()
+  const blocks = Math.round(hours / blockHours)
+  const segments = Array.from({ length: blocks }, (_, i) => {
+    const end = new Date(now - i * blockHours * 3600000)
+    const start = new Date(end.getTime() - blockHours * 3600000)
+    // Most recent block is a gap when the camera is offline/warning-dropout.
+    const gap = (i === 0 && cam.status === 'offline') || (i === 1 && cam.status === 'warning')
+    return { start: start.toISOString(), end: end.toISOString(), available: !gap }
+  }).reverse()
+  return { cameraId: id, retentionDays: 30, segments, note: 'Prototype — no recorded footage is bundled; a live deployment serves brokered HLS clips per segment.' }
+}
+
+/** Status-change event history for one camera (audit-style, device health only). */
+export async function getCameraEventHistory(id) {
+  requirePermission(PERMISSIONS.VIEW_CCTV)
+  await delay(140)
+  const cam = store.find((c) => c.id === id)
+  if (!cam) throw new NotFoundError(`Camera ${id} not found`)
+  const now = Date.now()
+  const base = [
+    { at: new Date(now - 3600000).toISOString(), event: cam.status === 'online' ? 'Heartbeat OK' : cam.status === 'warning' ? 'Connection unstable' : 'Camera went offline', severity: cam.status === 'online' ? 'info' : cam.status === 'warning' ? 'warning' : 'critical' },
+    { at: new Date(now - 6 * 3600000).toISOString(), event: 'Heartbeat OK', severity: 'info' },
+    { at: new Date(now - 24 * 3600000).toISOString(), event: 'Firmware heartbeat verified', severity: 'info' },
+    { at: `${cam.installedOn}T09:00:00`, event: 'Camera commissioned', severity: 'info' },
+  ]
+  return { items: base }
+}
+
+/** Fleet analytics for the monitoring dashboard (Department deepen feature). */
+export async function getCctvAnalytics() {
+  requirePermission(PERMISSIONS.VIEW_CCTV)
+  await delay(150)
+  const rows = store.map(resolveCamera)
+  const total = rows.length
+  const online = rows.filter((r) => r.status === 'online').length
+  const byDistrict = {}
+  for (const r of rows) {
+    const d = byDistrict[r.district] ?? { district: r.district, total: 0, online: 0, offline: 0, warning: 0 }
+    d.total++; d[r.status] = (d[r.status] ?? 0) + 1
+    byDistrict[r.district] = d
+  }
+  const districts = Object.values(byDistrict)
+    .map((d) => ({ ...d, uptimePct: d.total ? Math.round((d.online / d.total) * 100) : 0 }))
+    .sort((a, b) => a.uptimePct - b.uptimePct)
+  return { uptimePct: total ? Math.round((online / total) * 100) : 0, districts }
+}
+
 /** Rolled-up fleet health for the KPI row. */
 export async function getCctvHealth() {
   await delay()

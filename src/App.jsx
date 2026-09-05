@@ -42,6 +42,7 @@ import InspectorEvidence from './pages/inspector/InspectorEvidence.jsx'
 import InspectorReports from './pages/inspector/InspectorReports.jsx'
 import InspectorAttendanceVerification from './pages/inspector/InspectorAttendanceVerification.jsx'
 import { InspectorNotifications, InspectorSettings, InspectorEvidenceHub, InspectorScheduled, InspectorChecklist, InspectorHistory, InspectorMore } from './pages/inspector/InspectorSimplePages.jsx'
+import InspectorCameras from './pages/inspector/InspectorCameras.jsx'
 // Institution portal
 import InstitutionLogin from './pages/institution/InstitutionLogin.jsx'
 import InstitutionLayout from './pages/institution/InstitutionLayout.jsx'
@@ -172,6 +173,7 @@ export default function App() {
             <Route path="scheduled" element={<InspectorScheduled />} />
             <Route path="checklist" element={<InspectorChecklist />} />
             <Route path="attendance-verification" element={<InspectorAttendanceVerification />} />
+            <Route path="cameras" element={<InspectorCameras />} />
             <Route path="evidence" element={<InspectorEvidenceHub />} />
             <Route path="reports" element={<InspectorReports />} />
             <Route path="history" element={<InspectorHistory />} />

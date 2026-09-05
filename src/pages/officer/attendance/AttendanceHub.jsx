@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, ScanFace, SlidersHorizontal, ShieldCheck } from 'lucide-react'
+import { Plus, ScanFace, SlidersHorizontal, ShieldCheck, Radio } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext.jsx'
 import { useAsync } from '../../../hooks/useAsync.js'
 import { listProjects } from '../../../services/projectsService.js'
 import { getAttendanceStats, listSessions, createSession, closeSession, getAttendanceConfig } from '../../../services/attendanceService.js'
 import { getAttendanceMonitoring } from '../../../services/attendanceSessionsService.js'
+import { getInstitutionCctvHealth } from '../../../services/institutionCctvService.js'
 import { SESSION_SUBJECTS } from '../../../data/attendanceModels.js'
 import StatCard from '../../../components/officer/StatCard.jsx'
 import { SessionStatusBadge } from '../../../components/officer/attendance/Badges.jsx'
@@ -14,6 +15,17 @@ const MON_STATUS = {
   Normal: 'border-[#138808]/25 bg-green-50 text-[#16794f]',
   Watch: 'border-[#e2a610]/35 bg-amber-50 text-[#a15c00]',
   'Requires Review': 'border-[#D6262B]/25 bg-red-50 text-[#D6262B]',
+}
+
+/** Per-class camera-coverage flag, linking CCTV health to attendance. */
+function CameraFlag({ cam }) {
+  if (!cam) return <span className="text-xs text-plum-950/40">—</span>
+  const meta = {
+    online: { label: 'Online', cls: 'text-[#16794f]' },
+    warning: { label: 'Unstable', cls: 'text-[#a15c00]' },
+    offline: { label: 'Offline during session', cls: 'text-[#b23b3b] font-semibold' },
+  }[cam.status] ?? { label: '—', cls: 'text-plum-950/40' }
+  return <span className={`inline-flex items-center gap-1 text-xs ${meta.cls}`} title={cam.cameras.join(', ')}><Radio className="h-3 w-3" aria-hidden="true" /> {meta.label}</span>
 }
 
 export default function AttendanceHub() {
@@ -27,6 +39,7 @@ export default function AttendanceHub() {
   const { data: config } = useAsync(() => getAttendanceConfig(), [])
   const { data: projectData } = useAsync(() => listProjects({ pageSize: 100 }), [])
   const { data: monitoring } = useAsync(() => getAttendanceMonitoring(), [])
+  const { data: cctv } = useAsync(() => getInstitutionCctvHealth('INST-001'), [])
 
   const sessions = sessionData?.items ?? []
   const projects = projectData?.items ?? []
@@ -66,31 +79,38 @@ export default function AttendanceHub() {
       <div className="rounded-2xl border border-plum-950/10 bg-white p-4 shadow-sm sm:p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-bold text-plum-950">Institution Attendance Monitoring</h2>
-          {monitoring && <span className="text-xs text-plum-950/55">{monitoring.pendingSubmissions} pending submission(s) · overall {monitoring.overallPct}%</span>}
+          <div className="flex items-center gap-2 text-xs text-plum-950/55">
+            {cctv && <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-semibold ${cctv.offline ? 'border-[#D6262B]/25 bg-red-50 text-[#b23b3b]' : 'border-[#138808]/25 bg-green-50 text-[#16794f]'}`}><Radio className="h-3 w-3" aria-hidden="true" /> {cctv.online}/{cctv.total} cameras online</span>}
+            {monitoring && <span>{monitoring.pendingSubmissions} pending · overall {monitoring.overallPct}%</span>}
+          </div>
         </div>
         <div className="overflow-x-auto rounded-xl border border-plum-950/10">
-          <table className="w-full min-w-[560px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[620px] border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-plum-950/10 bg-plum-50/60 text-xs text-plum-950/60 uppercase">
-                <th className="px-3 py-2.5 font-semibold">Institution · Class</th><th className="px-3 py-2.5 font-semibold">Students</th><th className="px-3 py-2.5 font-semibold">Attendance</th><th className="px-3 py-2.5 font-semibold">Today</th><th className="px-3 py-2.5 font-semibold">Status</th>
+                <th className="px-3 py-2.5 font-semibold">Institution · Class</th><th className="px-3 py-2.5 font-semibold">Students</th><th className="px-3 py-2.5 font-semibold">Attendance</th><th className="px-3 py-2.5 font-semibold">Today</th><th className="px-3 py-2.5 font-semibold">Camera</th><th className="px-3 py-2.5 font-semibold">Status</th>
               </tr>
             </thead>
             <tbody>
               {!monitoring ? (
-                <tr><td colSpan={5} className="px-3 py-6 text-center text-plum-950/50">Loading…</td></tr>
-              ) : monitoring.byClass.map((c) => (
-                <tr key={c.class} className="border-b border-plum-950/5 last:border-0 text-plum-950/85">
-                  <td className="px-3 py-2.5 font-semibold text-plum-950">Govt Ashram Shala, Wada · {c.class}</td>
-                  <td className="px-3 py-2.5">{c.students}</td>
-                  <td className="px-3 py-2.5 font-semibold">{c.attendancePct}%</td>
-                  <td className="px-3 py-2.5">{c.pendingSubmission ? <span className="text-xs font-semibold text-[#a15c00]">Pending</span> : <span className="text-xs text-[#16794f]">Submitted</span>}</td>
-                  <td className="px-3 py-2.5"><span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${MON_STATUS[c.status] ?? ''}`}>{c.status}</span></td>
-                </tr>
-              ))}
+                <tr><td colSpan={6} className="px-3 py-6 text-center text-plum-950/50">Loading…</td></tr>
+              ) : monitoring.byClass.map((c) => {
+                const cam = cctv?.byClass?.[c.class]
+                return (
+                  <tr key={c.class} className="border-b border-plum-950/5 last:border-0 text-plum-950/85">
+                    <td className="px-3 py-2.5 font-semibold text-plum-950">Govt Ashram Shala, Wada · {c.class}</td>
+                    <td className="px-3 py-2.5">{c.students}</td>
+                    <td className="px-3 py-2.5 font-semibold">{c.attendancePct}%</td>
+                    <td className="px-3 py-2.5">{c.pendingSubmission ? <span className="text-xs font-semibold text-[#a15c00]">Pending</span> : <span className="text-xs text-[#16794f]">Submitted</span>}</td>
+                    <td className="px-3 py-2.5"><CameraFlag cam={cam} /></td>
+                    <td className="px-3 py-2.5"><span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${MON_STATUS[c.status] ?? ''}`}>{c.status}</span></td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-[11px] text-plum-950/50">The Department monitors and audits institution attendance — it does not run routine daily sessions. Unusual patterns surface in <Link to="/officer/analytics" className="text-plum-800 hover:underline">AI Analytics</Link>.</p>
+        <p className="mt-2 text-[11px] text-plum-950/50">The Department monitors and audits institution attendance — it does not run routine daily sessions. A camera offline during a session is flagged here so attendance can be read in context. Unusual patterns surface in <Link to="/officer/analytics" className="text-plum-800 hover:underline">AI Analytics</Link>.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.4fr]">
