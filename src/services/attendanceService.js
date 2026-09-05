@@ -19,6 +19,7 @@ import { loadModels, detectFaces, alignFace, computeEmbedding } from './faceReco
 import * as vault from './biometricVault.js'
 import { requirePermission } from './authz.js'
 import { PERMISSIONS } from '../data/rbac.js'
+import { record as recordAudit } from './auditService.js'
 
 // --- in-memory stores -----------------------------------------------------
 let students = []
@@ -200,6 +201,7 @@ export async function finalizeEnrollment(studentId) {
   }
   const meta = vault.enroll(studentId, buf)
   enrollmentBuffers.delete(studentId)
+  recordAudit('BIOMETRIC_ENROLLED', { entityId: studentId, metadata: { samples: meta.sampleCount } })
   return { studentId, status: meta.status, sampleCount: meta.sampleCount, enrolledAt: meta.enrolledAt }
 }
 
@@ -210,6 +212,7 @@ export async function cancelEnrollment(studentId) {
 
 export async function deactivateEnrollment(studentId) {
   await delay(150)
+  recordAudit('BIOMETRIC_DEACTIVATED', { entityId: studentId })
   return vault.deactivate(studentId)
 }
 export async function reactivateEnrollment(studentId) {
@@ -219,6 +222,7 @@ export async function reactivateEnrollment(studentId) {
 export async function deleteEnrollment(studentId) {
   requirePermission(PERMISSIONS.MANAGE_BIOMETRIC_ENROLLMENT)
   await delay(150)
+  recordAudit('BIOMETRIC_DELETED', { entityId: studentId })
   return vault.deleteEnrollment(studentId)
 }
 
@@ -297,6 +301,7 @@ export async function createSession(input, officer) {
     createdAt: new Date().toISOString(),
   }
   sessions = [record, ...sessions]
+  recordAudit('CREATE_ATTENDANCE_SESSION', { entityId: record.id, projectId: record.projectId, metadata: { subject: record.subject } })
   return record
 }
 
@@ -341,6 +346,7 @@ export async function markAttendance(sessionId, { studentId, matchScore, officer
     officerId: officerId ?? session.officerId,
   }
   records = [record, ...records]
+  recordAudit('MARK_ATTENDANCE', { entityId: sessionId, projectId: session.projectId, metadata: { student: studentId } })
   return { duplicate: false, record }
 }
 

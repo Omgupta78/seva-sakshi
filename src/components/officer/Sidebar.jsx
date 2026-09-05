@@ -14,6 +14,7 @@ import {
   Bell,
   Settings,
   Users2,
+  ScrollText,
   LogOut,
   X,
 } from 'lucide-react'
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { to: '/officer/alerts', label: 'Anomaly Alerts', icon: Siren, permission: PERMISSIONS.VIEW_ANALYTICS },
   { to: '/officer/reports', label: 'Reports', icon: FileBarChart, permission: PERMISSIONS.VIEW_REPORTS },
   { to: '/officer/users', label: 'User Management', icon: Users2, permission: PERMISSIONS.MANAGE_USERS },
+  { to: '/officer/audit-logs', label: 'Audit Logs', icon: ScrollText, permission: PERMISSIONS.VIEW_AUDIT_LOGS },
   { to: '/officer/notifications', label: 'Notifications', icon: Bell, permission: PERMISSIONS.VIEW_NOTIFICATIONS },
   { to: '/officer/settings', label: 'Settings', icon: Settings },
 ]

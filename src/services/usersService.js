@@ -10,6 +10,7 @@
 import { delay, NotFoundError } from './apiClient.js'
 import { requirePermission } from './authz.js'
 import { PERMISSIONS, ROLES, ROLE_LABELS, permissionsForRole } from '../data/rbac.js'
+import { record as recordAudit } from './auditService.js'
 
 const SEED_USERS = [
   { id: 'USR-001', name: 'Priya Sharma', email: 'priya.sharma@dosje.gov.in', role: ROLES.DOSJE_OFFICER, district: 'Pune', status: 'active' },
@@ -45,7 +46,9 @@ export async function updateUserRole(id, role) {
   await delay(150)
   const u = store.find((x) => x.id === id)
   if (!u) throw new NotFoundError(`User ${id} not found`)
+  const from = u.role
   u.role = role
+  recordAudit('CHANGE_USER_ROLE', { entityId: id, metadata: { user: u.name, from, to: role } })
   return decorate(u)
 }
 
@@ -55,5 +58,6 @@ export async function setUserStatus(id, status) {
   const u = store.find((x) => x.id === id)
   if (!u) throw new NotFoundError(`User ${id} not found`)
   u.status = status
+  recordAudit('CHANGE_USER_STATUS', { entityId: id, metadata: { user: u.name, to: status } })
   return decorate(u)
 }

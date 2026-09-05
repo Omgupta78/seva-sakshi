@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute.jsx'
 import RequirePermission from './components/RequirePermission.jsx'
 import { PERMISSIONS } from './data/rbac.js'
 import UsersManagement from './pages/officer/UsersManagement.jsx'
+import AuditLogs from './pages/officer/AuditLogs.jsx'
 import Landing from './pages/Landing.jsx'
 import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
@@ -89,6 +90,7 @@ export default function App() {
             <Route path="reports" element={<RequirePermission permission={PERMISSIONS.VIEW_REPORTS}><Reports /></RequirePermission>} />
             <Route path="reports/inspection/:id" element={<RequirePermission permission={PERMISSIONS.VIEW_REPORTS}><PrintableInspectionReport /></RequirePermission>} />
             <Route path="users" element={<RequirePermission permission={PERMISSIONS.MANAGE_USERS}><UsersManagement /></RequirePermission>} />
+            <Route path="audit-logs" element={<RequirePermission permission={PERMISSIONS.VIEW_AUDIT_LOGS}><AuditLogs /></RequirePermission>} />
             <Route path="notifications" element={<RequirePermission permission={PERMISSIONS.VIEW_NOTIFICATIONS}><Notifications /></RequirePermission>} />
             <Route path="settings" element={<Settings />} />
           </Route>

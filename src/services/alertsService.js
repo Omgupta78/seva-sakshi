@@ -15,6 +15,7 @@ import { runAnalysis, buildChartSeries } from './anomalyEngine.js'
 import { INSPECTIONS } from '../data/inspectionsSeedData.js'
 import { requirePermission } from './authz.js'
 import { PERMISSIONS } from '../data/rbac.js'
+import { record as recordAudit } from './auditService.js'
 
 let seq = 4100
 function seed() {
@@ -84,7 +85,9 @@ function mutate(id, fn) {
 
 export async function reviewAlert(id, officer) {
   await delay(150)
-  return mutate(id, (a) => { if (a.status === 'open') a.status = 'reviewing'; push(a, officer, 'reviewed', 'Marked as under review.') })
+  const r = mutate(id, (a) => { if (a.status === 'open') a.status = 'reviewing'; push(a, officer, 'reviewed', 'Marked as under review.') })
+  recordAudit('REVIEW_ANOMALY', { entityId: id, projectId: r.projectId, metadata: { risk: r.riskLevel } })
+  return r
 }
 
 export async function assignInspection(id, officer) {
@@ -100,13 +103,17 @@ export async function addNote(id, note, officer) {
 
 export async function resolveAlert(id, officer, note) {
   await delay(150)
-  return mutate(id, (a) => { a.status = 'resolved'; a.resolvedAt = new Date().toISOString(); push(a, officer, 'resolved', note?.trim() || 'Reviewed and resolved.') })
+  const r = mutate(id, (a) => { a.status = 'resolved'; a.resolvedAt = new Date().toISOString(); push(a, officer, 'resolved', note?.trim() || 'Reviewed and resolved.') })
+  recordAudit('RESOLVE_ANOMALY', { entityId: id, projectId: r.projectId })
+  return r
 }
 
 export async function dismissAlert(id, reason, officer) {
   await delay(150)
   if (!reason?.trim()) throw new Error('A dismissal reason is required.')
-  return mutate(id, (a) => { a.status = 'dismissed'; a.dismissedAt = new Date().toISOString(); push(a, officer, 'dismissed', `Dismissed: ${reason.trim()}`) })
+  const r = mutate(id, (a) => { a.status = 'dismissed'; a.dismissedAt = new Date().toISOString(); push(a, officer, 'dismissed', `Dismissed: ${reason.trim()}`) })
+  recordAudit('DISMISS_ANOMALY', { entityId: id, projectId: r.projectId, metadata: { reason: reason.trim() } })
+  return r
 }
 
 // --- charts ---------------------------------------------------------------

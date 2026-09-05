@@ -29,14 +29,25 @@ export class ForbiddenError extends Error {
 // The active role for the "current request". Defaults to the least-privileged
 // role so an unset context can never accidentally grant access.
 let activeRole = ROLES.VIEW_ONLY
+let activeUser = { id: null, name: 'Unknown' }
 
 /** Called by the auth layer whenever the signed-in user (role) changes. */
 export function setActiveRole(role) {
   activeRole = role ?? ROLES.VIEW_ONLY
 }
 
+/** Identity of the signed-in user — used for audit attribution. */
+export function setActiveUser(user) {
+  activeUser = user ?? { id: null, name: 'Unknown' }
+}
+
 export function getActiveRole() {
   return activeRole
+}
+
+/** The current actor for audit records: who + what role. */
+export function getActor() {
+  return { id: activeUser.id, name: activeUser.name, role: activeRole }
 }
 
 export function can(permission) {

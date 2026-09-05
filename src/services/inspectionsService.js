@@ -4,6 +4,7 @@ import { PROJECTS, ORGANIZATIONS, LOCATIONS } from '../data/projectsSeedData.js'
 import { validateInspectionInput } from '../data/inspectionModels.js'
 import { requirePermission } from './authz.js'
 import { PERMISSIONS } from '../data/rbac.js'
+import { record as recordAudit } from './auditService.js'
 
 // In-memory store — see apiClient.js for why, and how to swap for a real API.
 // Stands in for what would be four related tables in a real backend:
@@ -152,6 +153,7 @@ export async function createInspection(input) {
     timeline,
   }
   store = [record, ...store]
+  recordAudit('CREATE_INSPECTION', { entityId: record.id, projectId: record.projectId, metadata: { type: record.type } })
   return resolveInspection(record)
 }
 
@@ -163,6 +165,7 @@ export async function assignTeam(id, teamId) {
   let updated = { ...store[idx], assignedTeamId: teamId, status: store[idx].status === 'pending' ? 'assigned' : store[idx].status }
   updated = appendTimeline(updated, 'assigned', 'Priya Sharma')
   store[idx] = updated
+  recordAudit('ASSIGN_INSPECTION', { entityId: id, projectId: updated.projectId, metadata: { teamId } })
   return saveAndResolve(idx)
 }
 
@@ -180,6 +183,7 @@ export async function assignInspector(id, inspector) {
   }
   updated = appendTimeline(updated, 'assigned', 'Priya Sharma')
   store[idx] = updated
+  recordAudit('ASSIGN_INSPECTION', { entityId: id, projectId: updated.projectId, metadata: { inspector: inspector.name } })
   return saveAndResolve(idx)
 }
 
@@ -236,6 +240,7 @@ export async function startInspection(id, meta = null) {
   }
   updated = appendTimeline(updated, 'started', actor)
   store[idx] = updated
+  recordAudit('START_INSPECTION', { entityId: id, projectId: updated.projectId, metadata: { locationVerified: updated.locationVerified ?? false } })
   return saveAndResolve(idx)
 }
 
@@ -315,6 +320,7 @@ export async function addEvidence(id, input) {
   else updated.lastUpdated = nowIso()
 
   store[idx] = updated
+  recordAudit('UPLOAD_EVIDENCE', { entityId: id, projectId: inspection.projectId, metadata: { type: evidenceItem.type } })
   return saveAndResolve(idx)
 }
 
@@ -340,6 +346,7 @@ export async function submitReport(id, input) {
   let updated = { ...inspection, report, status: 'completed' }
   updated = appendTimeline(updated, 'report-submitted', actor)
   store[idx] = updated
+  recordAudit('SUBMIT_INSPECTION', { entityId: id, projectId: inspection.projectId, metadata: { status: 'pending-review' } })
   return saveAndResolve(idx)
 }
 
@@ -357,6 +364,7 @@ export async function reviewAndCloseReport(id, reviewedBy = 'Priya Sharma') {
   updated = appendTimeline(updated, 'reviewed', reviewedBy)
   updated = appendTimeline(updated, 'closed', reviewedBy)
   store[idx] = updated
+  recordAudit('REVIEW_INSPECTION', { entityId: id, projectId: inspection.projectId, metadata: { closedBy: reviewedBy } })
   return saveAndResolve(idx)
 }
 

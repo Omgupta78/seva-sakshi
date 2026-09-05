@@ -61,6 +61,7 @@ export const PERMISSIONS = {
   VIEW_NOTIFICATIONS: 'VIEW_NOTIFICATIONS',
   MANAGE_USERS: 'MANAGE_USERS',
   SYSTEM_CONFIG: 'SYSTEM_CONFIG',
+  VIEW_AUDIT_LOGS: 'VIEW_AUDIT_LOGS',
 }
 
 export const PERMISSION_LABELS = {
@@ -80,6 +81,7 @@ export const PERMISSION_LABELS = {
   VIEW_NOTIFICATIONS: 'View notifications',
   MANAGE_USERS: 'Manage users',
   SYSTEM_CONFIG: 'System configuration',
+  VIEW_AUDIT_LOGS: 'View audit logs',
 }
 
 const P = PERMISSIONS

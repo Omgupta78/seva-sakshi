@@ -3,6 +3,7 @@ import { PROJECTS, ORGANIZATIONS, LOCATIONS, SCHEMES } from '../data/projectsSee
 import { validateProjectInput } from '../data/models.js'
 import { requirePermission } from './authz.js'
 import { PERMISSIONS } from '../data/rbac.js'
+import { record as recordAudit } from './auditService.js'
 
 // In-memory store — see apiClient.js for why, and how to swap for a real API.
 let store = [...PROJECTS]
@@ -86,7 +87,9 @@ export async function getProject(id) {
   await delay()
   const found = store.find((p) => p.id === id)
   if (!found) throw new NotFoundError(`Project ${id} not found`)
-  return resolveProject(found)
+  const resolved = resolveProject(found)
+  recordAudit('VIEW_PROJECT', { entityId: id, projectId: id, metadata: { name: resolved.name } })
+  return resolved
 }
 
 export async function createProject(input) {
@@ -127,6 +130,7 @@ export async function createProject(input) {
     inspectionHistory: [],
   }
   store = [record, ...store]
+  recordAudit('CREATE_PROJECT', { entityId: id, projectId: id, metadata: { name: record.name } })
   return resolveProject(record)
 }
 
@@ -136,6 +140,7 @@ export async function updateProject(id, patch) {
   const idx = store.findIndex((p) => p.id === id)
   if (idx === -1) throw new NotFoundError(`Project ${id} not found`)
   store[idx] = { ...store[idx], ...patch }
+  recordAudit('EDIT_PROJECT', { entityId: id, projectId: id, metadata: { fields: Object.keys(patch).join(', ') } })
   return resolveProject(store[idx])
 }
 

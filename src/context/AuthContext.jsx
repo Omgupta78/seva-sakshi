@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import { ROLES, roleHasPermission, permissionsForRole } from '../data/rbac.js'
-import { setActiveRole } from '../services/authz.js'
+import { setActiveRole, setActiveUser } from '../services/authz.js'
 
 /**
  * ---------------------------------------------------------------------
@@ -43,10 +43,11 @@ export function AuthProvider({ children }) {
   // Every user carries an RBAC role; default older sessions to DoSJE Officer.
   const rbacRole = user?.rbacRole ?? (user ? ROLES.DOSJE_OFFICER : null)
 
-  // Keep the service-layer authorization context in sync with who is signed
-  // in. Done during render (not just an effect) so it is set before any child
-  // renders or calls a guarded service.
+  // Keep the service-layer authorization + audit context in sync with who is
+  // signed in. Done during render (not just an effect) so it is set before any
+  // child renders or calls a guarded service.
   setActiveRole(rbacRole)
+  setActiveUser({ id: user?.employeeId ?? user?.id ?? null, name: user?.name ?? 'Unknown' })
 
   const login = useCallback((userProfile) => {
     const withRole = { rbacRole: ROLES.DOSJE_OFFICER, ...userProfile }

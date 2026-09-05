@@ -30,6 +30,7 @@ import { delay, NotFoundError } from './apiClient.js'
 import { PROJECTS, ORGANIZATIONS, LOCATIONS } from '../data/projectsSeedData.js'
 import { requirePermission } from './authz.js'
 import { PERMISSIONS } from '../data/rbac.js'
+import { record as recordAudit } from './auditService.js'
 import {
   ELIGIBILITY_RULES,
   CHECK_CONTEXTS,
@@ -223,6 +224,7 @@ export async function requestCall({ projectId, participant, participantType, con
   }
   calls.unshift(record)
   logAudit(id, AUDIT_EVENTS.REQUESTED, `${participantType} · ${context}`)
+  recordAudit('REQUEST_VIDEO_CALL', { entityId: id, projectId, metadata: { participantType } })
   return record
 }
 
