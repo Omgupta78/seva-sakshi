@@ -17,6 +17,8 @@ import { STUDENT_SEED, SESSION_SEED } from '../data/attendanceSeedData.js'
 import { ATTENDANCE_CONFIG, validateStudentProfile, validateSession } from '../data/attendanceModels.js'
 import { loadModels, detectFaces, alignFace, computeEmbedding } from './faceRecognitionProvider.js'
 import * as vault from './biometricVault.js'
+import { requirePermission } from './authz.js'
+import { PERMISSIONS } from '../data/rbac.js'
 
 // --- in-memory stores -----------------------------------------------------
 let students = []
@@ -89,6 +91,7 @@ export async function getAttendanceConfig() {
 
 // --- students / profiles --------------------------------------------------
 export async function listStudents(params = {}) {
+  requirePermission(PERMISSIONS.VIEW_ATTENDANCE)
   await ensureSeed()
   await delay()
   const { search = '', projectId = 'all', status = 'all', enrollment = 'all' } = params
@@ -110,6 +113,7 @@ export async function getStudent(id) {
 }
 
 export async function createStudent(input) {
+  requirePermission(PERMISSIONS.MANAGE_BIOMETRIC_ENROLLMENT)
   await ensureSeed()
   await delay()
   const errors = validateStudentProfile(input)
@@ -149,6 +153,7 @@ export async function setStudentStatus(id, status) {
 // --- enrolment (biometric) ------------------------------------------------
 /** Begin/restart an enrolment capture buffer for a student. */
 export async function startEnrollment(studentId) {
+  requirePermission(PERMISSIONS.MANAGE_BIOMETRIC_ENROLLMENT)
   await ensureSeed()
   await loadModels()
   enrollmentBuffers.set(studentId, [])
@@ -162,6 +167,7 @@ export async function startEnrollment(studentId) {
  * @param {{scenario?: string}} frameOpts drives the demo detector
  */
 export async function captureEnrollmentSample(studentId, frameOpts = {}) {
+  requirePermission(PERMISSIONS.MANAGE_BIOMETRIC_ENROLLMENT)
   await delay(160)
   const buf = enrollmentBuffers.get(studentId)
   if (!buf) throw new Error('Enrolment not started.')
@@ -186,6 +192,7 @@ function capResult(buf, extra) {
 
 /** Finalise: write buffered templates to the vault. */
 export async function finalizeEnrollment(studentId) {
+  requirePermission(PERMISSIONS.MANAGE_BIOMETRIC_ENROLLMENT)
   await delay(220)
   const buf = enrollmentBuffers.get(studentId)
   if (!buf || buf.length < ATTENDANCE_CONFIG.samplesRequired) {
@@ -210,6 +217,7 @@ export async function reactivateEnrollment(studentId) {
   return vault.reactivate(studentId)
 }
 export async function deleteEnrollment(studentId) {
+  requirePermission(PERMISSIONS.MANAGE_BIOMETRIC_ENROLLMENT)
   await delay(150)
   return vault.deleteEnrollment(studentId)
 }
@@ -222,6 +230,7 @@ export async function deleteEnrollment(studentId) {
  *        In demo mode `identityToken` says who is "in front of the camera".
  */
 export async function recognizeFrame(opts = {}) {
+  requirePermission(PERMISSIONS.VIEW_ATTENDANCE)
   await ensureSeed()
   await delay(200)
   const scenario = opts.scenario ?? 'one'
@@ -308,6 +317,7 @@ export async function closeSession(id) {
  * here — the caller only marks confirmed candidates.
  */
 export async function markAttendance(sessionId, { studentId, matchScore, officerId }) {
+  requirePermission(PERMISSIONS.VIEW_ATTENDANCE)
   await ensureSeed()
   await delay(150)
   const session = sessions.find((x) => x.id === sessionId)

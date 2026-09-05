@@ -1,6 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
+import RequirePermission from './components/RequirePermission.jsx'
+import { PERMISSIONS } from './data/rbac.js'
+import UsersManagement from './pages/officer/UsersManagement.jsx'
 import Landing from './pages/Landing.jsx'
 import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
@@ -63,29 +66,30 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<OfficerDashboard />} />
-            <Route path="projects" element={<ProjectsList />} />
-            <Route path="projects/:id" element={<ProjectDetails />} />
-            <Route path="institutes" element={<OrganizationsList category="institute" />} />
-            <Route path="ngos" element={<OrganizationsList category="ngo" />} />
-            <Route path="cctv" element={<CctvMonitoring />} />
-            <Route path="cctv/:cameraId" element={<CctvCameraDetail />} />
-            <Route path="video-check" element={<VideoCheck />} />
-            <Route path="inspections" element={<InspectionsList />} />
-            <Route path="inspections/create" element={<CreateInspectionPage />} />
-            <Route path="inspections/:id" element={<InspectionDetails />} />
-            <Route path="inspection-assignment" element={<InspectionAssignmentPage />} />
-            <Route path="attendance" element={<AttendanceLayout />}>
+            <Route path="projects" element={<RequirePermission permission={PERMISSIONS.VIEW_PROJECTS}><ProjectsList /></RequirePermission>} />
+            <Route path="projects/:id" element={<RequirePermission permission={PERMISSIONS.VIEW_PROJECTS}><ProjectDetails /></RequirePermission>} />
+            <Route path="institutes" element={<RequirePermission permission={PERMISSIONS.VIEW_PROJECTS}><OrganizationsList category="institute" /></RequirePermission>} />
+            <Route path="ngos" element={<RequirePermission permission={PERMISSIONS.VIEW_PROJECTS}><OrganizationsList category="ngo" /></RequirePermission>} />
+            <Route path="cctv" element={<RequirePermission permission={PERMISSIONS.VIEW_CCTV}><CctvMonitoring /></RequirePermission>} />
+            <Route path="cctv/:cameraId" element={<RequirePermission permission={PERMISSIONS.VIEW_CCTV}><CctvCameraDetail /></RequirePermission>} />
+            <Route path="video-check" element={<RequirePermission permission={PERMISSIONS.VIEW_VIDEO_CHECK}><VideoCheck /></RequirePermission>} />
+            <Route path="inspections" element={<RequirePermission permission={PERMISSIONS.VIEW_INSPECTIONS}><InspectionsList /></RequirePermission>} />
+            <Route path="inspections/create" element={<RequirePermission permission={PERMISSIONS.ASSIGN_INSPECTION}><CreateInspectionPage /></RequirePermission>} />
+            <Route path="inspections/:id" element={<RequirePermission permission={PERMISSIONS.VIEW_INSPECTIONS}><InspectionDetails /></RequirePermission>} />
+            <Route path="inspection-assignment" element={<RequirePermission permission={PERMISSIONS.ASSIGN_INSPECTION}><InspectionAssignmentPage /></RequirePermission>} />
+            <Route path="attendance" element={<RequirePermission permission={PERMISSIONS.VIEW_ATTENDANCE}><AttendanceLayout /></RequirePermission>}>
               <Route index element={<AttendanceHub />} />
               <Route path="live" element={<AttendanceLive />} />
               <Route path="students" element={<StudentsList />} />
-              <Route path="enrollment" element={<Enrollment />} />
+              <Route path="enrollment" element={<RequirePermission permission={PERMISSIONS.MANAGE_BIOMETRIC_ENROLLMENT}><Enrollment /></RequirePermission>} />
             </Route>
-            <Route path="analytics" element={<AnalyticsDashboard />} />
-            <Route path="alerts" element={<AlertsList />} />
-            <Route path="alerts/:id" element={<AlertDetail />} />
-            <Route path="reports" element={<Reports />} />
-            <Route path="reports/inspection/:id" element={<PrintableInspectionReport />} />
-            <Route path="notifications" element={<Notifications />} />
+            <Route path="analytics" element={<RequirePermission permission={PERMISSIONS.VIEW_ANALYTICS}><AnalyticsDashboard /></RequirePermission>} />
+            <Route path="alerts" element={<RequirePermission permission={PERMISSIONS.VIEW_ANALYTICS}><AlertsList /></RequirePermission>} />
+            <Route path="alerts/:id" element={<RequirePermission permission={PERMISSIONS.VIEW_ANALYTICS}><AlertDetail /></RequirePermission>} />
+            <Route path="reports" element={<RequirePermission permission={PERMISSIONS.VIEW_REPORTS}><Reports /></RequirePermission>} />
+            <Route path="reports/inspection/:id" element={<RequirePermission permission={PERMISSIONS.VIEW_REPORTS}><PrintableInspectionReport /></RequirePermission>} />
+            <Route path="users" element={<RequirePermission permission={PERMISSIONS.MANAGE_USERS}><UsersManagement /></RequirePermission>} />
+            <Route path="notifications" element={<RequirePermission permission={PERMISSIONS.VIEW_NOTIFICATIONS}><Notifications /></RequirePermission>} />
             <Route path="settings" element={<Settings />} />
           </Route>
 
@@ -94,7 +98,9 @@ export default function App() {
             path="/inspector"
             element={
               <ProtectedRoute>
-                <InspectorLayout />
+                <RequirePermission permission={PERMISSIONS.START_INSPECTION}>
+                  <InspectorLayout />
+                </RequirePermission>
               </ProtectedRoute>
             }
           >

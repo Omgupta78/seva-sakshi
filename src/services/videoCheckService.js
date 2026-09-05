@@ -28,6 +28,8 @@
  */
 import { delay, NotFoundError } from './apiClient.js'
 import { PROJECTS, ORGANIZATIONS, LOCATIONS } from '../data/projectsSeedData.js'
+import { requirePermission } from './authz.js'
+import { PERMISSIONS } from '../data/rbac.js'
 import {
   ELIGIBILITY_RULES,
   CHECK_CONTEXTS,
@@ -129,6 +131,7 @@ function buildPool(project) {
 
 /** Active projects available for a video check (for the picker). */
 export async function getVideoCheckProjects() {
+  requirePermission(PERMISSIONS.VIEW_VIDEO_CHECK)
   await delay(120)
   return PROJECTS.filter((p) => p.status === 'active')
     .map(resolveProject)
@@ -195,6 +198,7 @@ function logAudit(callId, event, note = null) {
  * captured or stored, and `recorded` is always false.
  */
 export async function requestCall({ projectId, participant, participantType, context, officer }) {
+  requirePermission(PERMISSIONS.VIEW_VIDEO_CHECK)
   await delay(200)
   const raw = PROJECTS.find((p) => p.id === projectId)
   if (!raw) throw new NotFoundError(`Project ${projectId} not found`)

@@ -1,6 +1,8 @@
 import { delay, NotFoundError } from './apiClient.js'
 import { PROJECTS, ORGANIZATIONS, LOCATIONS, SCHEMES } from '../data/projectsSeedData.js'
 import { validateProjectInput } from '../data/models.js'
+import { requirePermission } from './authz.js'
+import { PERMISSIONS } from '../data/rbac.js'
 
 // In-memory store — see apiClient.js for why, and how to swap for a real API.
 let store = [...PROJECTS]
@@ -32,6 +34,7 @@ function resolveProject(p) {
  * @param {number} [params.pageSize]
  */
 export async function listProjects(params = {}) {
+  requirePermission(PERMISSIONS.VIEW_PROJECTS)
   await delay()
 
   const {
@@ -79,6 +82,7 @@ export async function listProjects(params = {}) {
 }
 
 export async function getProject(id) {
+  requirePermission(PERMISSIONS.VIEW_PROJECTS)
   await delay()
   const found = store.find((p) => p.id === id)
   if (!found) throw new NotFoundError(`Project ${id} not found`)
@@ -86,6 +90,7 @@ export async function getProject(id) {
 }
 
 export async function createProject(input) {
+  requirePermission(PERMISSIONS.EDIT_PROJECTS)
   await delay()
   const errors = validateProjectInput(input)
   if (Object.keys(errors).length > 0) {
@@ -126,6 +131,7 @@ export async function createProject(input) {
 }
 
 export async function updateProject(id, patch) {
+  requirePermission(PERMISSIONS.EDIT_PROJECTS)
   await delay()
   const idx = store.findIndex((p) => p.id === id)
   if (idx === -1) throw new NotFoundError(`Project ${id} not found`)

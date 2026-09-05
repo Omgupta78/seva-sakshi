@@ -13,6 +13,8 @@
 import { delay, NotFoundError } from './apiClient.js'
 import { runAnalysis, buildChartSeries } from './anomalyEngine.js'
 import { INSPECTIONS } from '../data/inspectionsSeedData.js'
+import { requirePermission } from './authz.js'
+import { PERMISSIONS } from '../data/rbac.js'
 
 let seq = 4100
 function seed() {
@@ -34,6 +36,7 @@ function push(alert, officer, action, detail) {
 }
 
 export async function listAlerts(params = {}) {
+  requirePermission(PERMISSIONS.VIEW_ANALYTICS)
   await delay()
   const { search = '', risk = 'all', status = 'all', category = 'all', projectId = 'all' } = params
   let rows = [...alerts]
@@ -49,6 +52,7 @@ export async function listAlerts(params = {}) {
 }
 
 export async function getAlert(id) {
+  requirePermission(PERMISSIONS.VIEW_ANALYTICS)
   await delay()
   const a = alerts.find((x) => x.id === id)
   if (!a) throw new NotFoundError(`Alert ${id} not found`)
@@ -56,6 +60,7 @@ export async function getAlert(id) {
 }
 
 export async function getAlertStats() {
+  requirePermission(PERMISSIONS.VIEW_ANALYTICS)
   await delay(120)
   const open = alerts.filter((a) => a.status !== 'resolved' && a.status !== 'dismissed')
   return {
@@ -106,6 +111,7 @@ export async function dismissAlert(id, reason, officer) {
 
 // --- charts ---------------------------------------------------------------
 export async function getChartData() {
+  requirePermission(PERMISSIONS.VIEW_ANALYTICS)
   await delay(150)
   const s = buildChartSeries()
   // Inspection trend: current status distribution (from inspection records).

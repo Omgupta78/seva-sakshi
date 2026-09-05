@@ -2,10 +2,14 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Search, UserPlus, Trash2, PauseCircle, PlayCircle } from 'lucide-react'
 import { useAsync } from '../../../hooks/useAsync.js'
+import { useAuth } from '../../../context/AuthContext.jsx'
+import { PERMISSIONS } from '../../../data/rbac.js'
 import { listStudents, deactivateEnrollment, reactivateEnrollment, deleteEnrollment } from '../../../services/attendanceService.js'
 import { EnrollmentStatusBadge, StudentStatusBadge } from '../../../components/officer/attendance/Badges.jsx'
 
 export default function StudentsList() {
+  const { hasPermission } = useAuth()
+  const canManage = hasPermission(PERMISSIONS.MANAGE_BIOMETRIC_ENROLLMENT)
   const [filters, setFilters] = useState({ search: '', enrollment: 'all' })
   const { data, loading, refetch } = useAsync(() => listStudents(filters), [JSON.stringify(filters)])
   const [busyId, setBusyId] = useState(null)
@@ -31,9 +35,11 @@ export default function StudentsList() {
           <option value="not-enrolled">Not Enrolled</option>
           <option value="deactivated">Deactivated</option>
         </select>
-        <Link to="/officer/attendance/enrollment" className="ml-auto flex items-center gap-1.5 rounded-lg bg-[#D6262B] px-3.5 py-2 text-sm font-semibold text-white no-underline hover:bg-[#a91f24]">
-          <UserPlus className="h-4 w-4" aria-hidden="true" /> Enroll New
-        </Link>
+        {canManage && (
+          <Link to="/officer/attendance/enrollment" className="ml-auto flex items-center gap-1.5 rounded-lg bg-[#D6262B] px-3.5 py-2 text-sm font-semibold text-white no-underline hover:bg-[#a91f24]">
+            <UserPlus className="h-4 w-4" aria-hidden="true" /> Enroll New
+          </Link>
+        )}
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-plum-950/10 bg-white shadow-sm">
@@ -66,6 +72,9 @@ export default function StudentsList() {
                   {r.enrollment === 'enrolled' && <span className="ml-1 text-[10px] text-plum-950/45">{r.sampleCount} samples</span>}
                 </td>
                 <td className="px-3 py-2.5">
+                  {!canManage ? (
+                    <span className="text-xs text-plum-950/40">View only</span>
+                  ) : (
                   <div className="flex items-center gap-1.5">
                     {r.enrollment === 'not-enrolled' && (
                       <Link to={`/officer/attendance/enrollment?student=${r.id}`} className="rounded-lg bg-plum-800 px-2.5 py-1.5 text-xs font-semibold text-white no-underline hover:bg-plum-700">Enroll face</Link>
@@ -86,6 +95,7 @@ export default function StudentsList() {
                       </button>
                     )}
                   </div>
+                  )}
                 </td>
               </tr>
             ))}

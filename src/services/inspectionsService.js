@@ -2,6 +2,8 @@ import { delay, NotFoundError } from './apiClient.js'
 import { INSPECTIONS, TEAMS } from '../data/inspectionsSeedData.js'
 import { PROJECTS, ORGANIZATIONS, LOCATIONS } from '../data/projectsSeedData.js'
 import { validateInspectionInput } from '../data/inspectionModels.js'
+import { requirePermission } from './authz.js'
+import { PERMISSIONS } from '../data/rbac.js'
 
 // In-memory store — see apiClient.js for why, and how to swap for a real API.
 // Stands in for what would be four related tables in a real backend:
@@ -61,6 +63,7 @@ function saveAndResolve(idx) {
  * @param {number} [params.pageSize]
  */
 export async function listInspections(params = {}) {
+  requirePermission(PERMISSIONS.VIEW_INSPECTIONS)
   await delay()
   const { search = '', status = 'all', priority = 'all', riskLevel = 'all', type = 'all', sortBy = 'scheduledDate', sortDir = 'desc', page = 1, pageSize = 6 } = params
 
@@ -102,6 +105,7 @@ export async function listUnassignedInspections() {
 }
 
 export async function getInspection(id) {
+  requirePermission(PERMISSIONS.VIEW_INSPECTIONS)
   await delay()
   const found = store.find((i) => i.id === id)
   if (!found) throw new NotFoundError(`Inspection ${id} not found`)
@@ -114,6 +118,7 @@ export async function getInspection(id) {
 }
 
 export async function createInspection(input) {
+  requirePermission(PERMISSIONS.ASSIGN_INSPECTION)
   await delay()
   const errors = validateInspectionInput(input)
   if (Object.keys(errors).length > 0) {
@@ -151,6 +156,7 @@ export async function createInspection(input) {
 }
 
 export async function assignTeam(id, teamId) {
+  requirePermission(PERMISSIONS.ASSIGN_INSPECTION)
   await delay()
   const idx = store.findIndex((i) => i.id === id)
   if (idx === -1) throw new NotFoundError(`Inspection ${id} not found`)
@@ -162,6 +168,7 @@ export async function assignTeam(id, teamId) {
 
 /** Direct inspector assignment (from the AI-Assisted Random Inspection Assignment engine) — sits alongside the legacy assignTeam(). */
 export async function assignInspector(id, inspector) {
+  requirePermission(PERMISSIONS.ASSIGN_INSPECTION)
   await delay()
   const idx = store.findIndex((i) => i.id === id)
   if (idx === -1) throw new NotFoundError(`Inspection ${id} not found`)
@@ -211,6 +218,7 @@ export async function acceptInspection(id) {
  * timeline stages are recorded rather than leaving a gap.
  */
 export async function startInspection(id, meta = null) {
+  requirePermission(PERMISSIONS.START_INSPECTION)
   await delay()
   const idx = store.findIndex((i) => i.id === id)
   if (idx === -1) throw new NotFoundError(`Inspection ${id} not found`)
@@ -311,6 +319,7 @@ export async function addEvidence(id, input) {
 }
 
 export async function submitReport(id, input) {
+  requirePermission(PERMISSIONS.SUBMIT_INSPECTION)
   await delay()
   const idx = store.findIndex((i) => i.id === id)
   if (idx === -1) throw new NotFoundError(`Inspection ${id} not found`)

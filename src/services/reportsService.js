@@ -16,6 +16,14 @@ import { listAlerts } from './alertsService.js'
 import { getAttendanceStats } from './attendanceService.js'
 import { ORGANIZATIONS, LOCATIONS, SCHEMES } from '../data/projectsSeedData.js'
 import { statusLabel } from '../data/inspectionModels.js'
+import { requirePermission } from './authz.js'
+import { PERMISSIONS } from '../data/rbac.js'
+
+/** Reports aggregate across modules server-side; a report the role can view
+ *  should still degrade gracefully if a sub-dataset is out of its scope. */
+async function safe(fn) {
+  try { return await fn() } catch (e) { if (e?.name === 'ForbiddenError') return { items: [] }; throw e }
+}
 
 export const REPORT_TYPES = [
   { id: 'project-monitoring', label: 'Project Monitoring' },
@@ -62,10 +70,10 @@ function matchInspection(i, f) {
 async function loadAll(filters) {
   const f = { ...DEFAULT_FILTERS, ...filters }
   const [projRes, inspRes, camRes, alertRes] = await Promise.all([
-    listProjects({ pageSize: 100 }),
-    listInspections({ pageSize: 500 }),
-    listCameras({}),
-    listAlerts({}),
+    safe(() => listProjects({ pageSize: 100 })),
+    safe(() => listInspections({ pageSize: 500 })),
+    safe(() => listCameras({})),
+    safe(() => listAlerts({})),
   ])
   const projects = projRes.items.filter((p) => matchProject(p, f))
   const inspections = inspRes.items.filter((i) => matchInspection(i, f))
@@ -82,6 +90,7 @@ const avg = (arr) => (arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / a
 
 // --- KPI summary ----------------------------------------------------------
 export async function getReportSummary(filters = {}) {
+  requirePermission(PERMISSIONS.VIEW_REPORTS)
   const { projects, inspections, cameras, alerts } = await loadAll(filters)
   await delay(60)
   const inspectedProjectIds = new Set(inspections.map((i) => i.projectId))
@@ -102,6 +111,7 @@ export async function getReportSummary(filters = {}) {
 
 // --- charts ---------------------------------------------------------------
 export async function getReportCharts(filters = {}) {
+  requirePermission(PERMISSIONS.VIEW_REPORTS)
   const { projects, inspections, cameras } = await loadAll(filters)
   await delay(60)
   const count = (arr, key, val) => arr.filter((x) => x[key] === val).length
@@ -124,6 +134,7 @@ export async function getReportCharts(filters = {}) {
 
 // --- report datasets ------------------------------------------------------
 export async function getReport(type, filters = {}) {
+  requirePermission(PERMISSIONS.VIEW_REPORTS)
   const { projects, inspections, cameras, alerts } = await loadAll(filters)
   await delay(120)
 
@@ -206,13 +217,14 @@ export async function getReport(type, filters = {}) {
 
 // --- filter option lists --------------------------------------------------
 export async function getReportFilterOptions() {
+  requirePermission(PERMISSIONS.VIEW_REPORTS)
   await delay(80)
   const uniq = (a) => [...new Set(a)].sort()
   return {
     states: uniq(LOCATIONS.map((l) => l.state)),
     districts: uniq(LOCATIONS.map((l) => l.district)),
     schemes: SCHEMES.map((s) => ({ id: s.id, name: s.name })),
-    projects: (await listProjects({ pageSize: 100 })).items.map((p) => ({ id: p.id, name: p.name })),
+    projects: (await safe(() => listProjects({ pageSize: 100 }))).items.map((p) => ({ id: p.id, name: p.name })),
     organizations: ORGANIZATIONS.map((o) => ({ id: o.id, name: o.name })),
     inspectionStatuses: ['pending', 'assigned', 'scheduled', 'in-progress', 'completed', 'overdue', 'cancelled'],
     riskLevels: ['healthy', 'watch', 'high'],

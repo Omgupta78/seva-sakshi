@@ -18,6 +18,8 @@
 import { delay, NotFoundError } from './apiClient.js'
 import { CAMERAS } from '../data/cctvSeedData.js'
 import { PROJECTS, ORGANIZATIONS, LOCATIONS } from '../data/projectsSeedData.js'
+import { requirePermission } from './authz.js'
+import { PERMISSIONS } from '../data/rbac.js'
 
 const store = [...CAMERAS]
 
@@ -49,6 +51,7 @@ function resolveCamera(cam) {
  * @param {string} [params.status] 'all' | 'online' | 'offline' | 'warning'
  */
 export async function listCameras(params = {}) {
+  requirePermission(PERMISSIONS.VIEW_CCTV)
   await delay()
   const { search = '', state = 'all', district = 'all', projectId = 'all', organizationId = 'all', status = 'all' } = params
 
@@ -79,6 +82,7 @@ export async function listCameras(params = {}) {
 }
 
 export async function getCamera(id) {
+  requirePermission(PERMISSIONS.VIEW_CCTV)
   await delay()
   const found = store.find((c) => c.id === id)
   if (!found) throw new NotFoundError(`Camera ${id} not found`)

@@ -13,24 +13,28 @@ import {
   FileBarChart,
   Bell,
   Settings,
+  Users2,
   LogOut,
   X,
 } from 'lucide-react'
 import EmblemMark from '../EmblemMark.jsx'
+import { useAuth } from '../../context/AuthContext.jsx'
+import { PERMISSIONS } from '../../data/rbac.js'
 
 const NAV_ITEMS = [
   { to: '/officer/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/officer/projects', label: 'Projects', icon: FolderKanban },
-  { to: '/officer/institutes', label: 'Institutes / NGOs', icon: Building2 },
-  { to: '/officer/cctv', label: 'Live CCTV', icon: Video },
-  { to: '/officer/video-check', label: 'Video Check', icon: MonitorPlay },
-  { to: '/officer/inspections', label: 'Inspections', icon: ClipboardList },
-  { to: '/officer/inspection-assignment', label: 'Inspection Assignment', icon: UserCheck },
-  { to: '/officer/attendance', label: 'Attendance', icon: CalendarCheck },
-  { to: '/officer/analytics', label: 'AI Analytics', icon: BrainCircuit },
-  { to: '/officer/alerts', label: 'Anomaly Alerts', icon: Siren },
-  { to: '/officer/reports', label: 'Reports', icon: FileBarChart },
-  { to: '/officer/notifications', label: 'Notifications', icon: Bell },
+  { to: '/officer/projects', label: 'Projects', icon: FolderKanban, permission: PERMISSIONS.VIEW_PROJECTS },
+  { to: '/officer/institutes', label: 'Institutes / NGOs', icon: Building2, permission: PERMISSIONS.VIEW_PROJECTS },
+  { to: '/officer/cctv', label: 'Live CCTV', icon: Video, permission: PERMISSIONS.VIEW_CCTV },
+  { to: '/officer/video-check', label: 'Video Check', icon: MonitorPlay, permission: PERMISSIONS.VIEW_VIDEO_CHECK },
+  { to: '/officer/inspections', label: 'Inspections', icon: ClipboardList, permission: PERMISSIONS.VIEW_INSPECTIONS },
+  { to: '/officer/inspection-assignment', label: 'Inspection Assignment', icon: UserCheck, permission: PERMISSIONS.ASSIGN_INSPECTION },
+  { to: '/officer/attendance', label: 'Attendance', icon: CalendarCheck, permission: PERMISSIONS.VIEW_ATTENDANCE },
+  { to: '/officer/analytics', label: 'AI Analytics', icon: BrainCircuit, permission: PERMISSIONS.VIEW_ANALYTICS },
+  { to: '/officer/alerts', label: 'Anomaly Alerts', icon: Siren, permission: PERMISSIONS.VIEW_ANALYTICS },
+  { to: '/officer/reports', label: 'Reports', icon: FileBarChart, permission: PERMISSIONS.VIEW_REPORTS },
+  { to: '/officer/users', label: 'User Management', icon: Users2, permission: PERMISSIONS.MANAGE_USERS },
+  { to: '/officer/notifications', label: 'Notifications', icon: Bell, permission: PERMISSIONS.VIEW_NOTIFICATIONS },
   { to: '/officer/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -40,6 +44,8 @@ const NAV_ITEMS = [
  * (toggled from TopBar's hamburger button).
  */
 export default function Sidebar({ open, onClose, onLogout }) {
+  const { hasPermission } = useAuth()
+  const navItems = NAV_ITEMS.filter((item) => !item.permission || hasPermission(item.permission))
   return (
     <>
       <button
@@ -75,7 +81,7 @@ export default function Sidebar({ open, onClose, onLogout }) {
         </div>
 
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-2.5 pb-4">
-          {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+          {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}

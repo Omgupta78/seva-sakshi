@@ -1,18 +1,18 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { ROLES, roleHasPermission, permissionsForRole } from '../data/rbac.js'
+import { setActiveRole } from '../services/authz.js'
 
 /**
  * ---------------------------------------------------------------------
- * DEMO AUTH SESSION — mirrors the disclaimer in LoginForm.jsx
+ * DEMO AUTH SESSION + RBAC
  * ---------------------------------------------------------------------
- * There is still no real backend. This context just holds "who is
- * logged in" for the duration of the browser tab (sessionStorage), so
- * the dashboard has a real user object to read a name/role/district
- * from, and so /dashboard can be gated behind an actual login.
+ * Holds "who is logged in" for the browser tab (sessionStorage), including
+ * the user's RBAC role. The role drives `hasPermission()` for UX gating, and
+ * is pushed into services/authz.js so the service layer (the backend
+ * stand-in) can enforce permissions on every sensitive call.
  *
- * To wire this to a real backend: replace `login()`'s body with
- * whatever your auth endpoint returns (e.g. a JWT + user profile),
- * and store only a session token client-side — never persist
- * anything you wouldn't want readable via devtools.
+ * To wire to a real backend: `login()` stores a session token; the role and
+ * permissions come from the verified session on the server, not from here.
  * ---------------------------------------------------------------------
  */
 const SESSION_KEY = 'seva-sakshi-demo-session'
@@ -28,28 +28,59 @@ function readSession() {
   }
 }
 
+function persist(user) {
+  try {
+    if (user) sessionStorage.setItem(SESSION_KEY, JSON.stringify(user))
+    else sessionStorage.removeItem(SESSION_KEY)
+  } catch {
+    /* storage unavailable — session just won't survive a refresh */
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(readSession)
 
+  // Every user carries an RBAC role; default older sessions to DoSJE Officer.
+  const rbacRole = user?.rbacRole ?? (user ? ROLES.DOSJE_OFFICER : null)
+
+  // Keep the service-layer authorization context in sync with who is signed
+  // in. Done during render (not just an effect) so it is set before any child
+  // renders or calls a guarded service.
+  setActiveRole(rbacRole)
+
   const login = useCallback((userProfile) => {
-    setUser(userProfile)
-    try {
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(userProfile))
-    } catch {
-      /* sessionStorage unavailable (private mode etc.) — session just won't survive a refresh */
-    }
+    const withRole = { rbacRole: ROLES.DOSJE_OFFICER, ...userProfile }
+    setUser(withRole)
+    persist(withRole)
   }, [])
 
   const logout = useCallback(() => {
     setUser(null)
-    try {
-      sessionStorage.removeItem(SESSION_KEY)
-    } catch {
-      /* ignore */
-    }
+    persist(null)
+    setActiveRole(null)
   }, [])
 
-  const value = useMemo(() => ({ user, isAuthenticated: !!user, login, logout }), [user, login, logout])
+  /** Demo affordance: switch the active role without re-logging-in. */
+  const switchRole = useCallback((role) => {
+    setUser((prev) => {
+      const next = { ...(prev ?? {}), rbacRole: role }
+      persist(next)
+      return next
+    })
+  }, [])
+
+  const hasPermission = useCallback((permission) => roleHasPermission(rbacRole, permission), [rbacRole])
+
+  const value = useMemo(() => ({
+    user,
+    isAuthenticated: !!user,
+    role: rbacRole,
+    permissions: rbacRole ? permissionsForRole(rbacRole) : [],
+    hasPermission,
+    login,
+    logout,
+    switchRole,
+  }), [user, rbacRole, hasPermission, login, logout, switchRole])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

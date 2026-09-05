@@ -2,8 +2,11 @@ import { Link } from 'react-router-dom'
 import { Search, Plus } from 'lucide-react'
 import { INSPECTION_STATUSES, INSPECTION_TYPES, PRIORITIES, statusLabel, typeLabel } from '../../../data/inspectionModels.js'
 import { RISK_LEVELS } from '../../../data/models.js'
+import { useAuth } from '../../../context/AuthContext.jsx'
+import { PERMISSIONS } from '../../../data/rbac.js'
 
 export default function InspectionFilters({ filters, onChange }) {
+  const { hasPermission } = useAuth()
   function set(field, value) {
     onChange({ ...filters, [field]: value, page: 1 })
   }
@@ -61,13 +64,15 @@ export default function InspectionFilters({ filters, onChange }) {
         ))}
       </select>
 
-      <Link
-        to="/officer/inspections/create"
-        className="ml-auto flex items-center gap-1.5 rounded-lg bg-[#D6262B] px-3.5 py-2 text-sm font-semibold text-white no-underline transition-colors hover:bg-[#a91f24]"
-      >
-        <Plus className="h-4 w-4" aria-hidden="true" />
-        Create Inspection
-      </Link>
+      {hasPermission(PERMISSIONS.ASSIGN_INSPECTION) && (
+        <Link
+          to="/officer/inspections/create"
+          className="ml-auto flex items-center gap-1.5 rounded-lg bg-[#D6262B] px-3.5 py-2 text-sm font-semibold text-white no-underline transition-colors hover:bg-[#a91f24]"
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Create Inspection
+        </Link>
+      )}
     </div>
   )
 }
