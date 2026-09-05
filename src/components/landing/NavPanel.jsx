@@ -83,14 +83,14 @@ export default function NavPanel({ open, onClose }) {
           ))}
         </ul>
 
-        <Link
-          to="/login"
+        <a
+          href="#portal-heading"
           onClick={onClose}
           className="mt-5 flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-[0.9rem] font-bold text-indigo-900 no-underline"
         >
           <LogIn className="h-4 w-4" aria-hidden="true" />
           {t('login')}
-        </Link>
+        </a>
       </nav>
     </>
   )
