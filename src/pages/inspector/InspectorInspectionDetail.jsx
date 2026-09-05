@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ChevronLeft, PlayCircle, Camera, ChevronRight, CheckCircle2, MapPin, Clock, Building2 } from 'lucide-react'
+import { ChevronLeft, PlayCircle, Camera, ChevronRight, CheckCircle2, MapPin, Clock, Building2, Video, Users } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useGeolocation } from '../../hooks/useGeolocation.js'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus.js'
@@ -22,6 +22,19 @@ const emptyVerification = {
   beneficiaryGroup: '',
   observation: '',
   comments: '',
+}
+
+function WorkspaceLink({ to, icon: Icon, title, subtitle }) {
+  return (
+    <Link to={to} className="flex min-h-16 items-center gap-3 rounded-2xl border border-plum-950/10 bg-white p-4 no-underline shadow-sm active:bg-plum-50">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-plum-50 text-plum-800"><Icon className="h-5 w-5" aria-hidden="true" /></span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold text-plum-950">{title}</span>
+        <span className="block text-xs text-plum-950/60">{subtitle}</span>
+      </span>
+      <ChevronRight className="h-5 w-5 shrink-0 text-plum-950/30" aria-hidden="true" />
+    </Link>
+  )
 }
 
 function InfoRow({ icon: Icon, label, value }) {
@@ -192,6 +205,12 @@ export default function InspectorInspectionDetail() {
             </span>
             <ChevronRight className="h-5 w-5 shrink-0 text-plum-950/30" aria-hidden="true" />
           </Link>
+
+          {/* Attendance verification (reuses the shared attendance data — read only) */}
+          <WorkspaceLink to="/inspector/attendance-verification" icon={Users} title="Attendance Verification" subtitle="Compare reported vs observed attendance" />
+
+          {/* CCTV verification (reuses the CCTV StreamProvider — assigned institution only) */}
+          <WorkspaceLink to="/inspector/cameras" icon={Video} title="CCTV Monitoring" subtitle="View this institution's authorised cameras" />
 
           <section>
             <div className="mb-2 flex items-baseline justify-between">

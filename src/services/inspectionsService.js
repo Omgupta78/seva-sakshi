@@ -312,6 +312,9 @@ export async function updateChecklistItem(id, itemId, patch) {
   await delay(200)
   const idx = store.findIndex((i) => i.id === id)
   if (idx === -1) throw new NotFoundError(`Inspection ${id} not found`)
+  if (store[idx].status === 'completed') {
+    throw new Error('This inspection is submitted and locked. A correction must be requested by the Department first.')
+  }
   const checklist = store[idx].checklist.map((item) => (item.id === itemId ? { ...item, ...patch } : item))
   store[idx] = { ...store[idx], checklist, lastUpdated: nowIso() }
   return saveAndResolve(idx)
@@ -360,6 +363,9 @@ export async function submitReport(id, input) {
   const idx = store.findIndex((i) => i.id === id)
   if (idx === -1) throw new NotFoundError(`Inspection ${id} not found`)
   const inspection = store[idx]
+  if (inspection.status === 'completed' && inspection.report?.status !== 'correction-requested') {
+    throw new Error('This inspection has already been submitted and is locked.')
+  }
   const actor = primaryActor(inspection)
 
   const report = {
@@ -396,6 +402,53 @@ export async function reviewAndCloseReport(id, reviewedBy = 'Priya Sharma') {
   store[idx] = updated
   recordAudit('REVIEW_INSPECTION', { entityId: id, projectId: inspection.projectId, metadata: { closedBy: reviewedBy } })
   return saveAndResolve(idx)
+}
+
+/**
+ * Department review decision on a submitted report (spec §13):
+ *   - approve            → mark reviewed + closed (delegates to reviewAndClose)
+ *   - request-correction → reopen for the inspector (status back to in-progress),
+ *                          reason required; the report is NOT silently editable
+ *                          otherwise — this is the only path back in.
+ *   - flag               → flag for further review, stays completed; reason required.
+ * Guarded by VIEW_INSPECTIONS; audited.
+ */
+export async function reviewInspection(id, { decision, reason = '', reviewedBy = 'Priya Sharma' } = {}) {
+  requirePermission(PERMISSIONS.VIEW_INSPECTIONS)
+  await delay()
+  const idx = store.findIndex((i) => i.id === id)
+  if (idx === -1) throw new NotFoundError(`Inspection ${id} not found`)
+  const inspection = store[idx]
+  if (!inspection.report) throw new Error('Cannot review an inspection with no submitted report.')
+
+  if (decision === 'approve') return reviewAndCloseReport(id, reviewedBy)
+
+  if ((decision === 'request-correction' || decision === 'flag') && !reason.trim()) {
+    throw new Error('Please give a reason for this decision.')
+  }
+
+  if (decision === 'request-correction') {
+    let updated = {
+      ...inspection,
+      status: 'in-progress', // reopen so the inspector can correct + resubmit
+      report: { ...inspection.report, status: 'correction-requested', reviewNote: reason.trim(), reviewedBy, reviewedAt: nowIso() },
+    }
+    store[idx] = updated
+    recordAudit('REQUEST_INSPECTION_CORRECTION', { entityId: id, projectId: inspection.projectId, metadata: { reason: reason.trim(), by: reviewedBy } })
+    return saveAndResolve(idx)
+  }
+
+  if (decision === 'flag') {
+    let updated = {
+      ...inspection,
+      report: { ...inspection.report, flagged: true, reviewNote: reason.trim(), reviewedBy, reviewedAt: nowIso() },
+    }
+    store[idx] = updated
+    recordAudit('FLAG_INSPECTION', { entityId: id, projectId: inspection.projectId, metadata: { reason: reason.trim(), by: reviewedBy } })
+    return saveAndResolve(idx)
+  }
+
+  throw new Error(`Unknown review decision: ${decision}`)
 }
 
 export function resetInspectionsStore() {

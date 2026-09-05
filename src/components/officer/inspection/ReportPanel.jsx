@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { CheckCircle2 } from 'lucide-react'
-import { submitReport, reviewAndCloseReport } from '../../../services/inspectionsService.js'
+import { CheckCircle2, RotateCcw, Flag, AlertTriangle } from 'lucide-react'
+import { submitReport, reviewInspection } from '../../../services/inspectionsService.js'
 
 function formatTimestamp(ts) {
   if (!ts) return '—'
@@ -63,12 +63,20 @@ function SubmitReportForm({ inspectionId, onSubmitted }) {
 
 export default function ReportPanel({ inspection, canSubmit, canReview, onChanged }) {
   const [reviewing, setReviewing] = useState(false)
+  const [decisionForm, setDecisionForm] = useState(null) // 'request-correction' | 'flag'
+  const [reason, setReason] = useState('')
+  const [error, setError] = useState('')
 
-  async function handleReview() {
+  async function runDecision(decision, reasonText = '') {
     setReviewing(true)
+    setError('')
     try {
-      const updated = await reviewAndCloseReport(inspection.id)
+      const updated = await reviewInspection(inspection.id, { decision, reason: reasonText })
+      setDecisionForm(null)
+      setReason('')
       onChanged(updated)
+    } catch (e) {
+      setError(e.message || 'Could not complete the review action.')
     } finally {
       setReviewing(false)
     }
@@ -128,16 +136,39 @@ export default function ReportPanel({ inspection, canSubmit, canReview, onChange
         </div>
       </dl>
 
+      {r.reviewNote && (
+        <div className={`flex items-start gap-2 rounded-lg border p-2.5 text-xs ${r.flagged ? 'border-[#D6262B]/25 bg-red-50 text-[#b23b3b]' : 'border-[#e2a610]/35 bg-amber-50 text-[#a15c00]'}`}>
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span><strong>{r.flagged ? 'Flagged for review' : 'Correction requested'}:</strong> {r.reviewNote}</span>
+        </div>
+      )}
+
       {canReview && r.status === 'pending-review' && (
-        <button
-          type="button"
-          onClick={handleReview}
-          disabled={reviewing}
-          className="flex items-center gap-1.5 rounded-lg bg-plum-800 px-4 py-2 text-sm font-semibold text-white hover:bg-plum-900 disabled:opacity-60"
-        >
-          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-          {reviewing ? 'Closing…' : 'Review & Close Inspection'}
-        </button>
+        <div className="space-y-2 border-t border-plum-950/10 pt-3">
+          {error && <p className="rounded-lg bg-red-50 p-2 text-xs font-medium text-[#D6262B]">{error}</p>}
+          {decisionForm ? (
+            <div className="rounded-xl border border-plum-950/12 bg-plum-50/40 p-3">
+              <label htmlFor="review-reason" className="mb-1 block text-xs font-semibold text-plum-950/70">Reason ({decisionForm === 'flag' ? 'flag' : 'correction'} — required)</label>
+              <textarea id="review-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={decisionForm === 'flag' ? 'Why is this being flagged?' : 'What must the inspector correct?'} className="w-full rounded-lg border border-plum-950/15 bg-white px-3 py-2 text-sm focus:outline-none" />
+              <div className="mt-2 flex gap-2">
+                <button type="button" onClick={() => { setDecisionForm(null); setReason('') }} className="rounded-lg border border-plum-950/15 px-3 py-1.5 text-xs font-semibold text-plum-950 hover:bg-white">Cancel</button>
+                <button type="button" disabled={reviewing || !reason.trim()} onClick={() => runDecision(decisionForm, reason)} className="rounded-lg bg-plum-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-plum-900 disabled:opacity-50">{reviewing ? 'Saving…' : decisionForm === 'flag' ? 'Flag for review' : 'Request correction'}</button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => runDecision('approve')} disabled={reviewing} className="flex items-center gap-1.5 rounded-lg bg-[#138808] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f6b06] disabled:opacity-60">
+                <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> {reviewing ? 'Working…' : 'Approve & Close'}
+              </button>
+              <button type="button" onClick={() => setDecisionForm('request-correction')} disabled={reviewing} className="flex items-center gap-1.5 rounded-lg border border-[#e2a610]/40 bg-amber-50 px-4 py-2 text-sm font-semibold text-[#a15c00] hover:bg-amber-100 disabled:opacity-60">
+                <RotateCcw className="h-4 w-4" aria-hidden="true" /> Request Correction
+              </button>
+              <button type="button" onClick={() => setDecisionForm('flag')} disabled={reviewing} className="flex items-center gap-1.5 rounded-lg border border-[#D6262B]/30 px-4 py-2 text-sm font-semibold text-[#D6262B] hover:bg-red-50 disabled:opacity-60">
+                <Flag className="h-4 w-4" aria-hidden="true" /> Flag for Review
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )

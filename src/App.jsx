@@ -68,6 +68,12 @@ function DepartmentCameraRedirect() {
   return <Navigate to={`/officer/cctv/${cameraId}`} replace />
 }
 
+/** Alias /department/inspections/:id to the canonical officer inspection detail. */
+function DepartmentInspectionRedirect() {
+  const { inspectionId } = useParams()
+  return <Navigate to={`/officer/inspections/${inspectionId}`} replace />
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -87,6 +93,9 @@ export default function App() {
           <Route path="/department/cctv" element={<Navigate to="/officer/cctv" replace />} />
           <Route path="/department/cctv/live" element={<Navigate to="/officer/cctv" replace />} />
           <Route path="/department/cctv/:cameraId" element={<DepartmentCameraRedirect />} />
+
+          {/* Department inspection review alias (spec §13) → canonical officer detail. */}
+          <Route path="/department/inspections/:inspectionId" element={<DepartmentInspectionRedirect />} />
 
           {/* Earlier institute-monitoring dashboard — kept available at its original URL. */}
           <Route

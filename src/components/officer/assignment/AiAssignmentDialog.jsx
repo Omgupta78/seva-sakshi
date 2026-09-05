@@ -75,8 +75,15 @@ export default function AiAssignmentDialog({ inspection, onClose, onAssigned }) 
 
   return (
     <Dialog title="AI-Assisted Random Inspection Assignment" onClose={onClose} size="lg">
-      <p className="mb-4 text-sm text-plum-950/60">
+      <p className="mb-3 text-sm text-plum-950/60">
         {inspection.projectName} · {inspection.organizationName} · {inspection.district}, {inspection.state}
+      </p>
+
+      {/* Honest labelling — the selection is a transparent scoring + seeded
+          weighted-random draw, not a trained AI model. */}
+      <p className="mb-4 flex items-start gap-2 rounded-lg border border-[#e2a610]/35 bg-amber-50 p-2.5 text-xs text-[#a15c00]">
+        <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <span><strong>DEMO AUTOMATED ASSIGNMENT.</strong> This uses transparent, explainable scoring (expertise, workload, locality) plus a seeded weighted-random draw — not a trained AI model. Manual assignment is always available. The officer confirms every assignment.</span>
       </p>
 
       {error && <p className="mb-3 rounded-lg bg-red-50 p-2.5 text-sm font-medium text-[#D6262B]">{error}</p>}
