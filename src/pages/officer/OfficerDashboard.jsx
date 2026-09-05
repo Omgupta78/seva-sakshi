@@ -25,7 +25,7 @@ export default function OfficerDashboard() {
   return (
     <div className="mx-auto max-w-[1600px] space-y-4">
       <div>
-        <h1 className="text-lg font-extrabold text-plum-950 sm:text-xl">Department Officer Dashboard</h1>
+        <h1 className="text-lg font-extrabold text-plum-950 sm:text-xl">Department Monitoring Dashboard</h1>
         <p className="text-sm text-plum-950/60">
           Welcome back, {user?.name ?? 'Officer'} — {user?.role}, {user?.district}.
         </p>

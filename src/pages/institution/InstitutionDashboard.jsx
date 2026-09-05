@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ScanFace, UserPlus, CalendarCheck, Bell, AlertTriangle, Info } from 'lucide-react'
+import { ScanFace, UserPlus, CalendarCheck, Bell, AlertTriangle, Info, Upload, ClipboardCheck, CalendarClock } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { getInstitutionSummary, getTodaysAttendance, getAttentionItems } from '../../services/institutionService.js'
@@ -8,6 +8,8 @@ import StatCard from '../../components/officer/StatCard.jsx'
 const QUICK = [
   { to: '/institution/attendance', label: 'Start Attendance', icon: ScanFace, primary: true },
   { to: '/institution/students', label: 'Add Student', icon: UserPlus },
+  { to: '/institution/documents', label: 'Upload Document', icon: Upload },
+  { to: '/institution/inspection-readiness', label: 'View Inspection', icon: ClipboardCheck },
   { to: '/institution/attendance', label: 'View Attendance', icon: CalendarCheck },
   { to: '/institution/notifications', label: 'Review Alerts', icon: Bell },
 ]
@@ -32,12 +34,20 @@ export default function InstitutionDashboard() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Total Students" value={summary?.totalStudents ?? '—'} accent="#3a1d70" />
         <StatCard label="Present Today" value={summary?.presentToday ?? '—'} accent="#138808" />
+        <StatCard label="Absent Today" value={summary?.absentToday ?? '—'} accent="#b23b3b" />
         <StatCard label="Attendance %" value={summary ? `${summary.attendancePct}%` : '—'} accent="#006a61" />
         <StatCard label="Pending Reviews" value={summary?.pendingReviews ?? '—'} emphasize />
+        <StatCard label="Pending Documents" value={summary?.pendingDocuments ?? '—'} accent="#a15c00" />
+        <StatCard label="Institution Alerts" value={summary?.alerts ?? '—'} accent="#c2410c" />
+        <Link to="/institution/inspection-readiness" className="flex flex-col justify-between rounded-2xl border border-plum-950/12 bg-white p-3.5 no-underline shadow-sm transition-colors hover:bg-plum-50">
+          <span className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-plum-950/55 uppercase"><CalendarClock className="h-3.5 w-3.5" aria-hidden="true" /> Upcoming Inspection</span>
+          <span className="mt-1 block text-sm font-bold text-plum-950">{summary?.upcomingInspection?.window ?? '—'}</span>
+          <span className="text-[11px] text-plum-950/55">{summary?.upcomingInspection?.type ?? 'None scheduled'}</span>
+        </Link>
       </div>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
         {QUICK.map((q) => {
           const Icon = q.icon
           return (

@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Home, ListChecks, FileText, Bell, LogOut, ChevronDown } from 'lucide-react'
+import { Home, ClipboardList, ShieldCheck, FileText, MoreHorizontal, LogOut, ChevronDown } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { ToastProvider } from '../../context/ToastContext.jsx'
 import { InspectorProvider, useInspector } from '../../context/InspectorContext.jsx'
@@ -9,16 +9,22 @@ import EmblemMark from '../../components/EmblemMark.jsx'
 
 const TABS = [
   { to: '/inspector/dashboard', label: 'Home', icon: Home, end: false },
-  { to: '/inspector/assignments', label: 'Assignments', icon: ListChecks, end: false },
+  { to: '/inspector/assignments', label: 'Assignments', icon: ClipboardList, end: false },
+  { to: '/inspector/attendance-verification', label: 'Verify', icon: ShieldCheck, end: false },
   { to: '/inspector/reports', label: 'Reports', icon: FileText, end: false },
-  { to: '/inspector/notifications', label: 'Alerts', icon: Bell, end: false },
+  { to: '/inspector/more', label: 'More', icon: MoreHorizontal, end: false },
 ]
+
+function isDevMode() {
+  try { return localStorage.getItem('seva-dev-mode') === '1' } catch { return false }
+}
 
 function InspectorChrome() {
   const { inspector, setInspector, inspectors } = useInspector()
   const { logout } = useAuth()
   const navigate = useNavigate()
   const online = useOnlineStatus()
+  const devMode = isDevMode()
 
   function handleLogout() {
     logout()
@@ -40,25 +46,18 @@ function InspectorChrome() {
           </div>
 
           <div className="flex items-center gap-1.5">
-            {/* Demo affordance — see InspectorContext.jsx */}
-            <div className="relative">
-              <label htmlFor="inspector-switcher" className="sr-only">
-                Acting as inspector
-              </label>
-              <select
-                id="inspector-switcher"
-                value={inspector.id}
-                onChange={(e) => setInspector(e.target.value)}
-                className="appearance-none rounded-full border border-white/30 bg-white/10 py-2 pr-7 pl-3 text-xs font-semibold text-white focus:outline-none"
-              >
-                {inspectors.map((i) => (
-                  <option key={i.id} value={i.id} className="text-plum-950">
-                    {i.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute top-1/2 right-2 h-3.5 w-3.5 -translate-y-1/2 text-white/70" aria-hidden="true" />
-            </div>
+            {/* Developer-only inspector switcher — hidden unless seva-dev-mode is set. */}
+            {devMode ? (
+              <div className="relative">
+                <label htmlFor="inspector-switcher" className="sr-only">Acting as inspector (developer)</label>
+                <select id="inspector-switcher" value={inspector.id} onChange={(e) => setInspector(e.target.value)} className="appearance-none rounded-full border border-white/30 bg-white/10 py-2 pr-7 pl-3 text-xs font-semibold text-white focus:outline-none">
+                  {inspectors.map((i) => <option key={i.id} value={i.id} className="text-plum-950">{i.name}</option>)}
+                </select>
+                <ChevronDown className="pointer-events-none absolute top-1/2 right-2 h-3.5 w-3.5 -translate-y-1/2 text-white/70" aria-hidden="true" />
+              </div>
+            ) : (
+              <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white">{inspector.name}</span>
+            )}
             <button
               type="button"
               onClick={handleLogout}

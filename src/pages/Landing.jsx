@@ -4,6 +4,7 @@ import UtilityBar from '../components/landing/UtilityBar.jsx'
 import SiteHeader from '../components/landing/SiteHeader.jsx'
 import Hero from '../components/landing/Hero.jsx'
 import MissionCard from '../components/landing/MissionCard.jsx'
+import PortalChooser from '../components/landing/PortalChooser.jsx'
 import LandingFooter from '../components/landing/LandingFooter.jsx'
 import NavPanel from '../components/landing/NavPanel.jsx'
 
@@ -58,6 +59,7 @@ function LandingContent() {
 
       <main id="main-content" className="flex-1">
         <Hero hcMode={hcMode} />
+        <PortalChooser />
         <div className="pb-16">
           <MissionCard />
         </div>

@@ -41,11 +41,15 @@ import InspectorInspectionDetail from './pages/inspector/InspectorInspectionDeta
 import InspectorEvidence from './pages/inspector/InspectorEvidence.jsx'
 import InspectorReports from './pages/inspector/InspectorReports.jsx'
 import InspectorAttendanceVerification from './pages/inspector/InspectorAttendanceVerification.jsx'
-import { InspectorNotifications, InspectorSettings, InspectorEvidenceHub } from './pages/inspector/InspectorSimplePages.jsx'
+import { InspectorNotifications, InspectorSettings, InspectorEvidenceHub, InspectorScheduled, InspectorChecklist, InspectorHistory, InspectorMore } from './pages/inspector/InspectorSimplePages.jsx'
 // Institution portal
 import InstitutionLogin from './pages/institution/InstitutionLogin.jsx'
 import InstitutionLayout from './pages/institution/InstitutionLayout.jsx'
 import InstitutionDashboard from './pages/institution/InstitutionDashboard.jsx'
+import InstitutionProfile from './pages/institution/InstitutionProfile.jsx'
+import InstitutionStaff from './pages/institution/InstitutionStaff.jsx'
+import InstitutionDocuments from './pages/institution/InstitutionDocuments.jsx'
+import InstitutionReadiness from './pages/institution/InstitutionReadiness.jsx'
 import InstitutionStudents from './pages/institution/InstitutionStudents.jsx'
 import InstitutionAttendance from './pages/institution/InstitutionAttendance.jsx'
 import InstitutionAttendanceSession from './pages/institution/InstitutionAttendanceSession.jsx'
@@ -63,7 +67,9 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           {/* Portal-specific login entry points (one auth system, role-based redirect). */}
           <Route path="/officer/login" element={<Login />} />
+          <Route path="/department/login" element={<Login />} />
           <Route path="/institution/login" element={<InstitutionLogin />} />
+          <Route path="/institute/login" element={<InstitutionLogin />} />
           <Route path="/inspector/login" element={<InspectorLogin />} />
 
           {/* Earlier institute-monitoring dashboard — kept available at its original URL. */}
@@ -130,7 +136,11 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<InstitutionDashboard />} />
+            <Route path="my-institute" element={<InstitutionProfile />} />
             <Route path="students" element={<InstitutionStudents />} />
+            <Route path="staff" element={<InstitutionStaff />} />
+            <Route path="documents" element={<InstitutionDocuments />} />
+            <Route path="inspection-readiness" element={<InstitutionReadiness />} />
             <Route path="attendance" element={<InstitutionAttendance />} />
             <Route path="attendance/sessions" element={<InstitutionAttendance />} />
             <Route path="attendance/session/:id" element={<InstitutionAttendanceSession />} />
@@ -157,9 +167,13 @@ export default function App() {
             <Route path="inspections" element={<InspectorInspections />} />
             <Route path="inspections/:id" element={<InspectorInspectionDetail />} />
             <Route path="inspections/:id/evidence" element={<InspectorEvidence />} />
+            <Route path="scheduled" element={<InspectorScheduled />} />
+            <Route path="checklist" element={<InspectorChecklist />} />
             <Route path="attendance-verification" element={<InspectorAttendanceVerification />} />
             <Route path="evidence" element={<InspectorEvidenceHub />} />
             <Route path="reports" element={<InspectorReports />} />
+            <Route path="history" element={<InspectorHistory />} />
+            <Route path="more" element={<InspectorMore />} />
             <Route path="notifications" element={<InspectorNotifications />} />
             <Route path="settings" element={<InspectorSettings />} />
           </Route>

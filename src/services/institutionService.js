@@ -12,7 +12,7 @@ import { delay, NotFoundError } from './apiClient.js'
 import { requirePermission } from './authz.js'
 import { PERMISSIONS } from '../data/rbac.js'
 import { record as recordAudit } from './auditService.js'
-import { INSTITUTION_STUDENTS, TODAYS_ATTENDANCE, ATTENTION_ITEMS, CLASSES } from '../data/institutionData.js'
+import { INSTITUTION_STUDENTS, TODAYS_ATTENDANCE, ATTENTION_ITEMS, CLASSES, INSTITUTION_PROFILE, INSTITUTION_STAFF, INSTITUTION_DOCUMENTS, UPCOMING_INSPECTION, READINESS_CHECKLIST } from '../data/institutionData.js'
 
 let students = INSTITUTION_STUDENTS.map((s) => ({ ...s }))
 
@@ -25,14 +25,46 @@ export async function getInstitutionSummary() {
   const totalPresentToday = TODAYS_ATTENDANCE.reduce((n, c) => n + c.present, 0)
   const totalToday = TODAYS_ATTENDANCE.reduce((n, c) => n + c.total, 0)
   const avgPct = active.length ? Math.round(active.reduce((n, s) => n + s.attendancePct, 0) / active.length) : 0
+  const pendingDocs = INSTITUTION_DOCUMENTS.filter((d) => d.required && d.status !== 'verified').length
   return {
     totalStudents: students.length,
     presentToday: totalPresentToday,
+    absentToday: Math.max(0, totalToday - totalPresentToday),
     attendancePct: totalToday ? Math.round((totalPresentToday / totalToday) * 100) : 0,
     avgAttendancePct: avgPct,
     pendingReviews: ATTENTION_ITEMS.length,
     faceEnrolled: students.filter((s) => s.faceEnrolled).length,
+    pendingDocuments: pendingDocs,
+    alerts: ATTENTION_ITEMS.filter((a) => a.severity === 'warn').length,
+    upcomingInspection: UPCOMING_INSPECTION,
   }
+}
+
+export async function getInstitutionProfile() {
+  requirePermission(PERMISSIONS.VIEW_ATTENDANCE)
+  await delay(110)
+  const active = students.filter((s) => s.status === 'active').length
+  return { ...INSTITUTION_PROFILE, activeStudents: active, totalStudents: students.length, staffCount: INSTITUTION_STAFF.filter((s) => s.status === 'active').length }
+}
+
+export async function listInstitutionStaff() {
+  requirePermission(PERMISSIONS.VIEW_ATTENDANCE)
+  await delay(120)
+  return { items: INSTITUTION_STAFF.map((s) => ({ ...s })), total: INSTITUTION_STAFF.length }
+}
+
+export async function listInstitutionDocuments() {
+  requirePermission(PERMISSIONS.VIEW_ATTENDANCE)
+  await delay(120)
+  return { items: INSTITUTION_DOCUMENTS.map((d) => ({ ...d })), total: INSTITUTION_DOCUMENTS.length }
+}
+
+export async function getInspectionReadiness() {
+  requirePermission(PERMISSIONS.VIEW_ATTENDANCE)
+  await delay(120)
+  const items = READINESS_CHECKLIST.map((c) => ({ ...c }))
+  const done = items.filter((c) => c.done).length
+  return { items, done, total: items.length, pct: items.length ? Math.round((done / items.length) * 100) : 0, upcoming: UPCOMING_INSPECTION }
 }
 
 export async function getTodaysAttendance() {
