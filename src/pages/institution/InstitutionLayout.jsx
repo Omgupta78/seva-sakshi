@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Building2, Users, CalendarCheck, UserCog, FileText, ClipboardCheck, MonitorPlay, Bell, Settings, LogOut, Menu, X, ChevronDown } from 'lucide-react'
+import { LayoutDashboard, Building2, Users, CalendarCheck, UserCog, FileText, ClipboardCheck, MonitorPlay, Video, Bell, Settings, LogOut, Menu, X, ChevronDown } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { ToastProvider } from '../../context/ToastContext.jsx'
 import { ROLE_LABELS } from '../../data/rbac.js'
@@ -14,6 +14,7 @@ const NAV = [
   { to: '/institution/staff', label: 'Staff', icon: UserCog },
   { to: '/institution/documents', label: 'Documents', icon: FileText },
   { to: '/institution/inspection-readiness', label: 'Inspection Readiness', icon: ClipboardCheck },
+  { to: '/institution/cctv', label: 'CCTV', icon: Video },
   { to: '/institution/video-check', label: 'Video Check', icon: MonitorPlay },
   { to: '/institution/notifications', label: 'Notifications', icon: Bell },
   { to: '/institution/settings', label: 'Settings', icon: Settings },

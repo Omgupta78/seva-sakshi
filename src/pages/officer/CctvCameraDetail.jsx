@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ChevronLeft, MapPin, Building2, FolderKanban, Radio, ShieldCheck, HeartPulse, Clock, PowerOff, Power, ArchiveX, Film, History } from 'lucide-react'
+import { ChevronLeft, MapPin, Building2, FolderKanban, Radio, ShieldCheck, HeartPulse, Clock, PowerOff, Power, ArchiveX, Film, History, ScanEye } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { PERMISSIONS } from '../../data/rbac.js'
 import { getCamera, disableCamera, enableCamera, decommissionCamera, getCameraPlaybackTimeline, getCameraEventHistory } from '../../services/cctvService.js'
+import { getEvents as getAnalyticsEvents, DISCLAIMER as ANALYTICS_DISCLAIMER } from '../../services/videoAnalyticsProvider.js'
 import VideoPlayer from '../../components/officer/cctv/VideoPlayer.jsx'
 import CameraStatusBadge from '../../components/officer/cctv/CameraStatusBadge.jsx'
 import ActionMenu from '../../components/officer/ActionMenu.jsx'
@@ -23,6 +24,7 @@ export default function CctvCameraDetail() {
   const { data: camera, loading, error, refetch } = useAsync(() => getCamera(cameraId), [cameraId])
   const { data: timeline } = useAsync(() => getCameraPlaybackTimeline(cameraId), [cameraId])
   const { data: history } = useAsync(() => getCameraEventHistory(cameraId), [cameraId])
+  const { data: aiEvents } = useAsync(() => getAnalyticsEvents(cameraId, { includeDemo: true }), [cameraId])
   const [action, setAction] = useState(null)
   const canManage = hasPermission(PERMISSIONS.CAMERA_DECOMMISSION)
 
@@ -202,6 +204,28 @@ export default function CctvCameraDetail() {
                 ))}
               </ol>
             )}
+          </div>
+
+          {/* AI Video Analytics — future abstraction, demo events only (spec §17). */}
+          <div className="rounded-2xl border border-plum-950/10 bg-white p-4 shadow-sm sm:p-5">
+            <div className="mb-2 flex items-center gap-1.5">
+              <ScanEye className="h-4 w-4 text-plum-800" aria-hidden="true" />
+              <h2 className="text-sm font-bold text-plum-950">AI Video Analytics</h2>
+              <span className="rounded-full border border-[#e2a610]/35 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-[#a15c00]">Demo</span>
+            </div>
+            {aiEvents && aiEvents.length > 0 ? (
+              <ul className="space-y-2">
+                {aiEvents.map((ev) => (
+                  <li key={ev.id} className="rounded-lg border border-[#e2a610]/25 bg-amber-50/50 p-2.5">
+                    <p className="flex items-center gap-1.5 text-xs font-bold text-[#a15c00]"><span className="rounded bg-[#a15c00]/10 px-1.5 py-0.5 text-[9px] tracking-wide uppercase">Demo AI Event</span> {ev.label}</p>
+                    <p className="mt-0.5 text-xs text-plum-950/70">{ev.message}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-plum-950/55">No analytics events.</p>
+            )}
+            <p className="mt-2 text-[11px] text-plum-950/45">{ANALYTICS_DISCLAIMER}</p>
           </div>
         </div>
       </div>

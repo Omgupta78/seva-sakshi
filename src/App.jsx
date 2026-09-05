@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import RequirePermission from './components/RequirePermission.jsx'
@@ -56,9 +56,17 @@ import InstitutionStudentProfile from './pages/institution/InstitutionStudentPro
 import InstitutionAttendance from './pages/institution/InstitutionAttendance.jsx'
 import InstitutionAttendanceSession from './pages/institution/InstitutionAttendanceSession.jsx'
 import InstitutionVideoCheck from './pages/institution/InstitutionVideoCheck.jsx'
+import InstitutionCctv from './pages/institution/InstitutionCctv.jsx'
 import InstitutionInspections from './pages/institution/InstitutionInspections.jsx'
 import InstitutionNotifications from './pages/institution/InstitutionNotifications.jsx'
 import InstitutionSettings from './pages/institution/InstitutionSettings.jsx'
+
+/** Preserves the camera id when aliasing /department/cctv/:id to the canonical
+ *  officer route (department CCTV lives under /officer, protected there). */
+function DepartmentCameraRedirect() {
+  const { cameraId } = useParams()
+  return <Navigate to={`/officer/cctv/${cameraId}`} replace />
+}
 
 export default function App() {
   return (
@@ -73,6 +81,12 @@ export default function App() {
           <Route path="/institution/login" element={<InstitutionLogin />} />
           <Route path="/institute/login" element={<InstitutionLogin />} />
           <Route path="/inspector/login" element={<InspectorLogin />} />
+
+          {/* Department CCTV route aliases (spec §2/§5/§6) → canonical /officer/cctv,
+              which enforces auth + department portal + VIEW_CCTV. */}
+          <Route path="/department/cctv" element={<Navigate to="/officer/cctv" replace />} />
+          <Route path="/department/cctv/live" element={<Navigate to="/officer/cctv" replace />} />
+          <Route path="/department/cctv/:cameraId" element={<DepartmentCameraRedirect />} />
 
           {/* Earlier institute-monitoring dashboard — kept available at its original URL. */}
           <Route
@@ -148,6 +162,7 @@ export default function App() {
             <Route path="attendance/sessions" element={<InstitutionAttendance />} />
             <Route path="attendance/session/:id" element={<InstitutionAttendanceSession />} />
             <Route path="video-check" element={<InstitutionVideoCheck />} />
+            <Route path="cctv" element={<InstitutionCctv />} />
             <Route path="inspections" element={<InstitutionInspections />} />
             <Route path="notifications" element={<InstitutionNotifications />} />
             <Route path="settings" element={<InstitutionSettings />} />

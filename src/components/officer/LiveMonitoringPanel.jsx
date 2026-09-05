@@ -1,4 +1,5 @@
-import { Video, VideoOff, FolderKanban, Activity } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Video, VideoOff, FolderKanban, Activity, ArrowRight } from 'lucide-react'
 
 const STATUS_STYLES = {
   operational: { label: 'Operational', dot: '#138808', text: 'text-[#16794f]' },
@@ -47,6 +48,10 @@ export default function LiveMonitoringPanel({ data }) {
         <Activity className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         {data.statusNote}
       </p>
+
+      <Link to="/officer/cctv" className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-plum-800 bg-plum-800 py-2.5 text-sm font-semibold text-white no-underline transition-colors hover:bg-plum-700">
+        <Video className="h-4 w-4" aria-hidden="true" /> View CCTV Monitoring <ArrowRight className="h-4 w-4" aria-hidden="true" />
+      </Link>
     </div>
   )
 }

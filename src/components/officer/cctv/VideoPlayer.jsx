@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Loader2, VideoOff, AlertTriangle, Radio } from 'lucide-react'
+import { Loader2, VideoOff, AlertTriangle, Radio, FlaskConical } from 'lucide-react'
 import { useAsync } from '../../../hooks/useAsync.js'
-import { requestPlayback, releasePlayback } from '../../../services/cctvStreamService.js'
+import { getStream, stopStream } from '../../../services/streamProvider.js'
 
 /**
  * FRONTEND VIDEO PLAYER (demo).
@@ -19,12 +19,12 @@ import { requestPlayback, releasePlayback } from '../../../services/cctvStreamSe
  * nothing else in the app needs to change.
  */
 export default function VideoPlayer({ camera }) {
-  const { data: session, loading } = useAsync(() => requestPlayback(camera.id), [camera.id])
+  const { data: session, loading } = useAsync(() => getStream(camera.id), [camera.id])
   const [clock, setClock] = useState(() => new Date())
 
   // Release the (simulated) gateway session token on unmount / camera change.
   useEffect(() => {
-    return () => releasePlayback(session?.token)
+    return () => stopStream(session?.token)
   }, [session])
 
   // Live on-screen-display clock, like a real camera timestamp overlay.
@@ -70,15 +70,21 @@ export default function VideoPlayer({ camera }) {
             </div>
           </div>
 
-          {/* Live / unstable pill, top-center. */}
-          <div className="pointer-events-none absolute top-2.5 left-1/2 -translate-x-1/2">
+          {/* Status + mode pills, top-center. In demo mode the feed is clearly
+              marked "DEMO STREAM" so it is never mistaken for a live camera. */}
+          <div className="pointer-events-none absolute top-2.5 left-1/2 flex -translate-x-1/2 items-center gap-1.5">
             {unstable ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/90 px-2.5 py-0.5 text-[11px] font-bold text-black">
                 <AlertTriangle className="h-3 w-3" aria-hidden="true" /> UNSTABLE
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 rounded-full bg-red-600/90 px-2.5 py-0.5 text-[11px] font-bold text-white">
-                <Radio className="h-3 w-3" aria-hidden="true" /> LIVE
+                <Radio className="h-3 w-3" aria-hidden="true" /> {session?.mode === 'demo' ? 'DEMO' : 'LIVE'}
+              </span>
+            )}
+            {session?.mode === 'demo' && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-bold tracking-wide text-amber-200 uppercase backdrop-blur-sm">
+                <FlaskConical className="h-3 w-3" aria-hidden="true" /> Demo Stream
               </span>
             )}
           </div>
