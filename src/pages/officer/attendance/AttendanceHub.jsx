@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, ScanFace, SlidersHorizontal, ShieldCheck, Radio } from 'lucide-react'
+import { Plus, ScanFace, SlidersHorizontal, ShieldCheck, Radio, Sparkles, AlertTriangle, Info } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext.jsx'
 import { useAsync } from '../../../hooks/useAsync.js'
 import { listProjects } from '../../../services/projectsService.js'
 import { getAttendanceStats, listSessions, createSession, closeSession, getAttendanceConfig } from '../../../services/attendanceService.js'
-import { getAttendanceMonitoring } from '../../../services/attendanceSessionsService.js'
+import { getAttendanceMonitoring, getAttendanceInsights } from '../../../services/attendanceSessionsService.js'
 import { getInstitutionCctvHealth } from '../../../services/institutionCctvService.js'
 import { SESSION_SUBJECTS } from '../../../data/attendanceModels.js'
 import StatCard from '../../../components/officer/StatCard.jsx'
@@ -40,6 +40,7 @@ export default function AttendanceHub() {
   const { data: projectData } = useAsync(() => listProjects({ pageSize: 100 }), [])
   const { data: monitoring } = useAsync(() => getAttendanceMonitoring(), [])
   const { data: cctv } = useAsync(() => getInstitutionCctvHealth('INST-001'), [])
+  const { data: insights } = useAsync(() => getAttendanceInsights(), [])
 
   const sessions = sessionData?.items ?? []
   const projects = projectData?.items ?? []
@@ -111,6 +112,33 @@ export default function AttendanceHub() {
           </table>
         </div>
         <p className="mt-2 text-[11px] text-plum-950/50">The Department monitors and audits institution attendance — it does not run routine daily sessions. A camera offline during a session is flagged here so attendance can be read in context. Unusual patterns surface in <Link to="/officer/analytics" className="text-plum-800 hover:underline">AI Analytics</Link>.</p>
+      </div>
+
+      {/* AI Insights — advisory indicators only (spec §12). */}
+      <div className="rounded-2xl border border-plum-950/10 bg-white p-4 shadow-sm sm:p-5">
+        <div className="mb-1 flex items-center gap-1.5">
+          <Sparkles className="h-4 w-4 text-plum-800" aria-hidden="true" />
+          <h2 className="text-sm font-bold text-plum-950">AI Insights</h2>
+          <span className="rounded-full border border-plum-800/20 bg-plum-50 px-2 py-0.5 text-[10px] font-semibold text-plum-800">Advisory</span>
+        </div>
+        {!insights ? (
+          <p className="py-3 text-sm text-plum-950/50">Analysing attendance…</p>
+        ) : insights.insights.length === 0 ? (
+          <p className="flex items-center gap-1.5 rounded-lg bg-green-50 p-2.5 text-xs text-[#16794f]"><Info className="h-4 w-4" aria-hidden="true" /> No attendance anomalies detected in recent submitted sessions.</p>
+        ) : (
+          <ul className="space-y-2">
+            {insights.insights.map((it) => (
+              <li key={it.id} className={`flex items-start gap-2.5 rounded-xl border p-2.5 text-xs ${it.severity === 'high' ? 'border-[#D6262B]/25 bg-red-50/60 text-[#b23b3b]' : 'border-[#e2a610]/30 bg-amber-50/60 text-[#a15c00]'}`}>
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{it.message}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-2.5 flex items-start gap-1.5 rounded-lg bg-plum-50/60 p-2 text-[11px] text-plum-950/55">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-plum-800" aria-hidden="true" />
+          {insights?.disclaimer ?? 'AI-generated indicator — requires human verification.'}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.4fr]">

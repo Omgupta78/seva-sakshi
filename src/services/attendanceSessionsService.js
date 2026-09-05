@@ -22,9 +22,13 @@ import { delay, NotFoundError } from './apiClient.js'
 import { requirePermission, getActor } from './authz.js'
 import { PERMISSIONS } from '../data/rbac.js'
 import { record as recordAudit } from './auditService.js'
-import { INSTITUTION_STUDENTS, CLASSES } from '../data/institutionData.js'
+import { recognizeFace, MODE as RECOGNITION_MODE, MODE_LABEL as RECOGNITION_MODE_LABEL } from './recognitionProvider.js'
+import { RECOGNITION_STATUS, ATTENDANCE_SOURCE, SESSION_STATE_LABEL, REVIEW_RECOGNITION } from '../data/attendanceModels.js'
+import { INSTITUTION_STUDENTS, CLASSES, sectionOf } from '../data/institutionData.js'
 
 export { CLASSES }
+export { RECOGNITION_MODE, RECOGNITION_MODE_LABEL }
+export const INSTITUTE_ID = 'INST-001'
 
 export const SESSION_TYPES = [
   { id: 'morning', label: 'Morning Attendance', time: '09:00' },
@@ -55,7 +59,16 @@ function pct(students) {
 }
 function decorate(s) {
   const c = counts(s.students)
-  return { ...s, ...c, attendancePct: pct(s.students) }
+  // `unknown` is the "needs review" bucket; surface it under the spec name too.
+  return {
+    ...s,
+    ...c,
+    reviewCount: c.unknown,
+    attendancePct: pct(s.students),
+    statusLabel: SESSION_STATE_LABEL[s.status] ?? s.status,
+    recognitionMode: RECOGNITION_MODE,
+    recognitionModeLabel: RECOGNITION_MODE_LABEL,
+  }
 }
 
 // --- seed: a week of submitted history + a couple of today's sessions -----
@@ -67,8 +80,11 @@ function seedSessions() {
     for (const cls of CLASSES) {
       const r = roster(cls)
       const base = [92, 88, 76, 95][CLASSES.indexOf(cls)] ?? 85
-      const students = r.map((st, i) => ({ studentId: st.id, name: st.name, result: (i * 7 + d) % 100 < base ? 'present' : 'absent', confidence: 88 + ((i + d) % 10), method: 'face' }))
-      out.push({ id: `SES-${seq++}`, class: cls, date: iso, sessionType: 'morning', startTime: '09:00', teacher: 'Kavita More', status: 'submitted', submittedAt: `${iso}T09:35:00`, students, createdAt: `${iso}T08:55:00` })
+      const students = r.map((st, i) => {
+        const present = (i * 7 + d) % 100 < base
+        return { studentId: st.id, name: st.name, result: present ? 'present' : 'absent', confidence: present ? 88 + ((i + d) % 10) : null, method: 'face', recognitionStatus: present ? RECOGNITION_STATUS.MATCHED : RECOGNITION_STATUS.NOT_AVAILABLE, source: ATTENDANCE_SOURCE.MOCK_DEMO }
+      })
+      out.push({ id: `SES-${seq++}`, class: cls, section: sectionOf(cls), instituteId: INSTITUTE_ID, date: iso, sessionType: 'morning', startTime: '09:00', endTime: '09:35', teacher: 'Kavita More', teacherId: 'STF-05', status: 'submitted', submittedAt: `${iso}T09:35:00`, students, createdAt: `${iso}T08:55:00` })
     }
   }
   return out
@@ -101,10 +117,11 @@ export async function createAttendanceSession({ cls, sessionType = 'morning' }) 
   requirePermission(PERMISSIONS.VIEW_ATTENDANCE)
   await delay(200)
   const type = SESSION_TYPES.find((t) => t.id === sessionType) ?? SESSION_TYPES[0]
+  const actor = getActor()
   const s = {
-    id: `SES-${seq++}`, class: cls, date: today(), sessionType, startTime: type.time,
-    teacher: getActor().name, status: 'draft',
-    students: roster(cls).map((st) => ({ studentId: st.id, name: st.name, result: null, confidence: null, method: null })),
+    id: `SES-${seq++}`, class: cls, section: sectionOf(cls), instituteId: INSTITUTE_ID, date: today(), sessionType, startTime: type.time, endTime: null,
+    teacher: actor.name, teacherId: actor.id ?? null, status: 'draft',
+    students: roster(cls).map((st) => ({ studentId: st.id, name: st.name, result: null, confidence: null, method: null, recognitionStatus: RECOGNITION_STATUS.NOT_AVAILABLE, source: null, reviewStatus: 'pending' })),
     createdAt: nowISO(), submittedAt: null,
   }
   sessions = [s, ...sessions]
@@ -134,16 +151,35 @@ export async function runRecognition(id) {
   const s = sessions.find((x) => x.id === id)
   if (!s) throw new NotFoundError(`Session ${id} not found`)
   const n = s.students.length
-  s.students = s.students.map((st, i) => {
-    // last two roster entries absent; one middle entry low-confidence unknown
-    if (i >= n - 2) return { ...st, result: 'absent', confidence: null, method: 'face', original: 'absent' }
-    if (i === Math.floor(n / 2)) return { ...st, result: 'unknown', confidence: 42, method: 'face', original: 'unknown' }
-    const conf = 88 + ((i * 7) % 11)
-    return { ...st, result: 'present', confidence: conf, method: 'face', original: 'present' }
-  })
+  // Every student goes through the RecognitionProvider facade. Detection is a
+  // separate step: NO_FACE / MULTIPLE_FACES / LOW_CONFIDENCE / NOT_MATCHED all
+  // route to human review — attendance is never auto-marked from detection.
+  s.students = await Promise.all(s.students.map(async (st, i) => {
+    // Absent = an enrolled student never seen during the session (no run).
+    if (i === n - 1) {
+      return { ...st, result: 'absent', confidence: null, method: 'face', recognitionStatus: RECOGNITION_STATUS.NOT_AVAILABLE, source: ATTENDANCE_SOURCE.MOCK_DEMO, timestamp: nowISO(), original: 'absent', reviewStatus: 'auto' }
+    }
+    // Demo scenarios exercise each detection/recognition outcome across a class.
+    const scenario = i === n - 2 ? 'no-face' : i === Math.floor(n / 2) ? 'multiple' : i === 1 ? 'low-confidence' : 'match'
+    const rec = await recognizeFace(null, { scenario, identityToken: st.studentId })
+    const needsReview = REVIEW_RECOGNITION.includes(rec.recognitionStatus)
+    const result = rec.recognitionStatus === RECOGNITION_STATUS.MATCHED ? 'present' : 'unknown'
+    return {
+      ...st,
+      result,
+      confidence: rec.confidence,
+      method: 'face',
+      recognitionStatus: rec.recognitionStatus,
+      source: rec.source,
+      timestamp: rec.timestamp,
+      faceCount: rec.faceCount,
+      original: result,
+      reviewStatus: needsReview ? 'pending' : 'auto',
+    }
+  }))
   s.status = 'review'
   const c = counts(s.students)
-  recordAudit('FACE_MATCH_RESULT', { entityId: id, metadata: { class: s.class, present: c.present, absent: c.absent, unknown: c.unknown } })
+  recordAudit('FACE_MATCH_RESULT', { entityId: id, metadata: { class: s.class, present: c.present, absent: c.absent, review: c.unknown, mode: RECOGNITION_MODE } })
   return decorate(s)
 }
 
@@ -165,6 +201,10 @@ export async function correctResult(id, studentId, newResult, reason) {
   }
   st.result = newResult
   st.corrected = true
+  st.source = ATTENDANCE_SOURCE.MANUAL
+  st.reviewStatus = 'resolved'
+  st.teacherOverride = true
+  st.teacherOverrideReason = reason?.trim() || 'Teacher review'
   st.correction = { previousValue: from, newValue: newResult, reason: reason?.trim() || 'Teacher review', changedBy: getActor().name, changedAt: nowISO(), role: getActor().role }
   recordAudit('ATTENDANCE_CORRECTED', { entityId: id, metadata: { student: st.name, from, to: newResult, reason: reason?.trim() || undefined } })
   return decorate(s)
@@ -195,6 +235,7 @@ export async function submitAttendanceSession(id, { override = false } = {}) {
   }
   s.status = 'submitted'
   s.submittedAt = nowISO()
+  s.endTime = new Date().toTimeString().slice(0, 5)
   s.overrideUsed = unresolved > 0 && override
   const c = counts(s.students)
   recordAudit('ATTENDANCE_SUBMITTED', { entityId: id, metadata: { class: s.class, present: c.present, absent: c.absent, unresolved, override: s.overrideUsed || undefined } })
@@ -220,6 +261,54 @@ export async function getAttendanceMonitoring() {
     pendingSubmissions: pending,
     overallPct: byClass.length ? Math.round(byClass.reduce((n, c) => n + c.attendancePct, 0) / byClass.length) : 0,
     lowAttendanceClasses: byClass.filter((c) => c.status !== 'Normal').length,
+  }
+}
+
+/**
+ * Advisory AI insights over submitted attendance (spec §12). These are
+ * INDICATORS ONLY — never a claim that fraud occurred. Every insight is tagged
+ * `advisory: true` so the UI can attach the "requires human verification"
+ * disclaimer. Transparent, explainable maths (means/deltas), not a black box.
+ */
+export async function getAttendanceInsights() {
+  requirePermission(PERMISSIONS.VIEW_ATTENDANCE)
+  await delay(160)
+  const submitted = sessions.filter((s) => s.status === 'submitted')
+  const insights = []
+
+  // 7-day trend: newest submitted per class vs its prior 7-day average.
+  for (const cls of CLASSES) {
+    const rows = submitted.filter((s) => s.class === cls).sort((a, b) => b.date.localeCompare(a.date))
+    if (rows.length < 3) continue
+    const latest = pct(rows[0].students)
+    const prior = rows.slice(1, 8)
+    const avg = Math.round(prior.reduce((n, s) => n + pct(s.students), 0) / prior.length)
+    const delta = latest - avg
+    if (delta <= -12) insights.push({ id: `INS-${cls}-drop`, type: 'trend-down', severity: 'high', message: `${cls}: attendance fell ${Math.abs(delta)}% vs its 7-day average (${avg}% → ${latest}%).` })
+    else if (delta >= 15) insights.push({ id: `INS-${cls}-spike`, type: 'trend-up', severity: 'medium', message: `${cls}: unusually high attendance — ${delta}% above its 7-day average (${avg}% → ${latest}%).` })
+  }
+
+  // Low-attendance classes (below threshold on the latest submitted session).
+  const mon = CLASSES.map((cls) => {
+    const latest = submitted.filter((s) => s.class === cls).sort((a, b) => b.date.localeCompare(a.date))[0]
+    return { class: cls, pct: latest ? pct(latest.students) : null }
+  }).filter((c) => c.pct != null && c.pct < 78)
+  if (mon.length) insights.push({ id: 'INS-low', type: 'low-attendance', severity: 'medium', message: `${mon.length} class(es) below the 78% threshold: ${mon.map((c) => `${c.class} (${c.pct}%)`).join(', ')}.` })
+
+  // Repeated-absence pattern: students absent in most of their recent sessions.
+  const perStudent = {}
+  for (const s of submitted) for (const st of s.students) {
+    const rec = perStudent[st.studentId] ?? { name: st.name, total: 0, absent: 0 }
+    rec.total++; if (st.result === 'absent') rec.absent++
+    perStudent[st.studentId] = rec
+  }
+  const chronic = Object.values(perStudent).filter((r) => r.total >= 4 && r.absent / r.total >= 0.5)
+  if (chronic.length) insights.push({ id: 'INS-chronic', type: 'repeated-absence', severity: 'medium', message: `Repeated-absence pattern for ${chronic.length} student(s) (absent in ≥50% of recent sessions).` })
+
+  return {
+    insights: insights.map((i) => ({ ...i, advisory: true })),
+    disclaimer: 'AI-generated indicator — requires human verification. These signals do not by themselves prove any wrongdoing.',
+    generatedAt: nowISO(),
   }
 }
 

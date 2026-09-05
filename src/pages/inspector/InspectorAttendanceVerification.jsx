@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { MapPin, ClipboardCheck, TrendingUp, AlertTriangle, Loader2, CheckCircle2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { MapPin, ClipboardCheck, TrendingUp, AlertTriangle, Loader2, CheckCircle2, Camera, ChevronRight } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { getAttendanceMonitoring, recordVerificationFinding } from '../../services/attendanceSessionsService.js'
@@ -83,8 +84,20 @@ export default function InspectorAttendanceVerification() {
           </dl>
           <p className="mt-2 text-xs text-plum-950/75">{finding.note}</p>
           <p className="mt-1 text-[11px] text-plum-950/45">Attached to the inspection for departmental review — institutional attendance was not modified.</p>
+          <Link to="/inspector/cameras" className="mt-3 flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-plum-800 bg-white text-sm font-semibold text-plum-800 no-underline hover:bg-plum-50">
+            <Camera className="h-4 w-4" aria-hidden="true" /> Attach photo evidence <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
         </div>
       )}
+
+      {!finding && (
+        <Link to="/inspector/cameras" className="flex items-center justify-between gap-2 rounded-2xl border border-plum-950/10 bg-white p-3.5 text-sm font-semibold text-plum-950 no-underline shadow-sm hover:bg-plum-50">
+          <span className="flex items-center gap-2"><Camera className="h-4 w-4 text-plum-800" aria-hidden="true" /> Attach photo evidence from site cameras</span>
+          <ChevronRight className="h-4 w-4 text-plum-950/40" aria-hidden="true" />
+        </Link>
+      )}
+
+      <p className="text-[11px] text-plum-950/45">Inspector actions: verify reported figures, record a discrepancy finding, add an observation note, and attach camera evidence. You cannot modify the institution's original attendance record.</p>
     </div>
   )
 }

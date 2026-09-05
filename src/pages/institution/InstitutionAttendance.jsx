@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ScanFace, Play, Eye, Info } from 'lucide-react'
+import { ScanFace, Play, Eye, Info, Search, FlaskConical } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { listAttendanceSessions, createAttendanceSession, getAttendanceMonitoring, SESSION_TYPES, CLASSES } from '../../services/attendanceSessionsService.js'
@@ -18,16 +18,21 @@ export default function InstitutionAttendance() {
   const navigate = useNavigate()
   const toast = useToast()
   const [filters, setFilters] = useState({ date: 'all', cls: 'all', status: 'all' })
+  const [search, setSearch] = useState('')
   const { data, loading, refetch } = useAsync(() => listAttendanceSessions(filters), [JSON.stringify(filters)])
   const { data: mon } = useAsync(() => getAttendanceMonitoring(), [])
   const [starting, setStarting] = useState(false)
-  const rows = data?.items ?? []
+  const q = search.trim().toLowerCase()
+  const rows = (data?.items ?? []).filter((r) => !q || r.class.toLowerCase().includes(q) || r.id.toLowerCase().includes(q) || (r.teacher ?? '').toLowerCase().includes(q))
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-lg font-extrabold text-plum-950 sm:text-xl">Attendance</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-extrabold text-plum-950 sm:text-xl">Attendance</h1>
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#e2a610]/35 bg-amber-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-[#a15c00] uppercase" title="Sample sessions for demonstration"><FlaskConical className="h-3 w-3" aria-hidden="true" /> Demo Data</span>
+          </div>
           <p className="text-sm text-plum-950/60">Run daily attendance sessions and review your class history.</p>
         </div>
         <button type="button" onClick={() => setStarting(true)} className="flex items-center gap-1.5 rounded-lg bg-plum-800 px-4 py-2 text-sm font-semibold text-white hover:bg-plum-700"><ScanFace className="h-4 w-4" aria-hidden="true" /> Start Attendance Session</button>
@@ -42,6 +47,10 @@ export default function InstitutionAttendance() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-plum-950/10 bg-white p-3 shadow-sm">
+        <div className="relative min-w-[180px] flex-1">
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-plum-950/40" aria-hidden="true" />
+          <input type="search" placeholder="Search class, session ID or teacher…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-lg border border-plum-950/15 bg-white py-2 pr-3 pl-9 text-sm focus:outline-none" />
+        </div>
         <input type="date" value={filters.date === 'all' ? '' : filters.date} onChange={(e) => setFilters({ ...filters, date: e.target.value || 'all' })} className="rounded-lg border border-plum-950/15 bg-white px-2.5 py-2 text-sm focus:outline-none" aria-label="Date" />
         <select value={filters.cls} onChange={(e) => setFilters({ ...filters, cls: e.target.value })} className="rounded-lg border border-plum-950/15 bg-white px-2.5 py-2 text-sm focus:outline-none">
           <option value="all">All Classes</option>{CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}

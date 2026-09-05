@@ -48,6 +48,63 @@ export const ATTENDANCE_STATUS = ['present', 'unknown', 'absent']
 
 export const SESSION_STATUS = ['scheduled', 'active', 'closed']
 
+/**
+ * Structured attendance model (spec §2/§3). The internal session store keeps its
+ * existing compact result values ('present' | 'absent' | 'unknown') for
+ * back-compatibility; these enums add the richer vocabulary the UI/spec use and
+ * map onto those values, so nothing downstream breaks.
+ */
+
+/** Per-student recognition outcome from the RecognitionProvider (spec §3). */
+export const RECOGNITION_STATUS = {
+  MATCHED: 'MATCHED',
+  NOT_MATCHED: 'NOT_MATCHED',
+  NO_FACE: 'NO_FACE',
+  MULTIPLE_FACES: 'MULTIPLE_FACES',
+  LOW_CONFIDENCE: 'LOW_CONFIDENCE',
+  NOT_AVAILABLE: 'NOT_AVAILABLE',
+}
+export const RECOGNITION_LABEL = {
+  MATCHED: 'Matched',
+  NOT_MATCHED: 'Not matched',
+  NO_FACE: 'No face',
+  MULTIPLE_FACES: 'Multiple faces',
+  LOW_CONFIDENCE: 'Low confidence',
+  NOT_AVAILABLE: 'Not available',
+}
+
+/** How an attendance result was produced (spec §3). */
+export const ATTENDANCE_SOURCE = {
+  FACE_RECOGNITION: 'FACE_RECOGNITION',
+  MANUAL: 'MANUAL',
+  MOCK_DEMO: 'MOCK_DEMO',
+}
+
+/** Spec session statuses (§2) mapped to the store's internal values. */
+export const SESSION_STATE = {
+  NOT_STARTED: 'draft',
+  ACTIVE: 'in-progress',
+  REVIEW_REQUIRED: 'review',
+  SUBMITTED: 'submitted',
+  LOCKED: 'locked',
+}
+/** Display label for an internal session status value. */
+export const SESSION_STATE_LABEL = {
+  draft: 'Not Started',
+  'in-progress': 'Active',
+  review: 'Review Required',
+  submitted: 'Submitted',
+  locked: 'Locked',
+}
+
+/** A NEEDS_REVIEW recognition outcome maps to the store's 'unknown' bucket. */
+export const REVIEW_RECOGNITION = [
+  RECOGNITION_STATUS.NO_FACE,
+  RECOGNITION_STATUS.MULTIPLE_FACES,
+  RECOGNITION_STATUS.LOW_CONFIDENCE,
+  RECOGNITION_STATUS.NOT_MATCHED,
+]
+
 /** Government section a beneficiary/student is associated with (demo set). */
 export const DEPARTMENTS = [
   'Social Welfare',

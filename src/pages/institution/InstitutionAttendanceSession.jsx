@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, ScanFace, CheckCircle2, UserCheck, UserX, HelpCircle, Send, Loader2, ShieldCheck } from 'lucide-react'
+import { ChevronLeft, ScanFace, CheckCircle2, UserCheck, UserX, HelpCircle, Send, Loader2, ShieldCheck, FlaskConical } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { PERMISSIONS } from '../../data/rbac.js'
+import { RECOGNITION_LABEL, RECOGNITION_STATUS } from '../../data/attendanceModels.js'
 import {
   getAttendanceSession, startAttendanceSession, runRecognition, correctResult, submitAttendanceSession, SESSION_TYPES,
 } from '../../services/attendanceSessionsService.js'
@@ -15,6 +16,15 @@ const RESULT_STYLE = {
   present: 'bg-green-50 text-[#16794f] border-[#138808]/25',
   absent: 'bg-red-50 text-[#D6262B] border-[#D6262B]/25',
   unknown: 'bg-amber-50 text-[#a15c00] border-[#e2a610]/35',
+}
+
+const RECOG_STYLE = {
+  MATCHED: 'text-[#16794f]',
+  NO_FACE: 'text-[#a15c00]',
+  MULTIPLE_FACES: 'text-[#a15c00]',
+  LOW_CONFIDENCE: 'text-[#a15c00]',
+  NOT_MATCHED: 'text-[#a15c00]',
+  NOT_AVAILABLE: 'text-plum-950/45',
 }
 
 export default function InstitutionAttendanceSession() {
@@ -87,24 +97,30 @@ export default function InstitutionAttendanceSession() {
       {/* Step 2: review */}
       {captured && (
         <>
+          {/* Demo Recognition Mode — never present simulated recognition as real AI. */}
+          <div className="flex items-start gap-2 rounded-xl border border-[#e2a610]/35 bg-amber-50 p-2.5 text-xs text-[#a15c00]">
+            <FlaskConical className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <span><strong>{session.recognitionModeLabel ?? 'Demo Recognition Mode'}.</strong> Recognition results below are simulated by a demo provider — not a real AI engine. Every result is reviewed by the teacher, who makes the final decision.</span>
+          </div>
+
           <div className="grid grid-cols-3 gap-3">
             <Count label="Present" value={session.present} tone="green" icon={UserCheck} />
             <Count label="Absent" value={session.absent} tone="red" icon={UserX} />
-            <Count label="Unknown / Unresolved" value={session.unknown} tone="amber" icon={HelpCircle} />
+            <Count label="Needs Review" value={session.reviewCount ?? session.unknown} tone="amber" icon={HelpCircle} />
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-plum-950/10 bg-white shadow-sm">
             <table className="w-full min-w-[620px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-plum-950/10 bg-plum-50/60 text-xs text-plum-950/60 uppercase">
-                  <th className="px-3 py-2.5 font-semibold">Student</th><th className="px-3 py-2.5 font-semibold">AI Result</th><th className="px-3 py-2.5 font-semibold">Confidence</th><th className="px-3 py-2.5 font-semibold">Final</th>{!submitted && <th className="px-3 py-2.5 font-semibold">Review</th>}
+                  <th className="px-3 py-2.5 font-semibold">Student</th><th className="px-3 py-2.5 font-semibold">Recognition</th><th className="px-3 py-2.5 font-semibold">Confidence</th><th className="px-3 py-2.5 font-semibold">Final</th>{!submitted && <th className="px-3 py-2.5 font-semibold">Review</th>}
                 </tr>
               </thead>
               <tbody>
                 {session.students.map((st) => (
                   <tr key={st.studentId} className={`border-b border-plum-950/5 last:border-0 ${st.result === 'unknown' ? 'bg-amber-50/40' : ''}`}>
                     <td className="px-3 py-2.5 font-semibold text-plum-950">{st.name}<span className="ml-1 font-mono text-[10px] text-plum-950/40">{st.studentId}</span></td>
-                    <td className="px-3 py-2.5"><span className="capitalize text-plum-950/70">{st.original ?? st.result}</span></td>
+                    <td className="px-3 py-2.5"><span className={`text-xs font-medium ${RECOG_STYLE[st.recognitionStatus] ?? 'text-plum-950/60'}`}>{RECOGNITION_LABEL[st.recognitionStatus] ?? (st.recognitionStatus === RECOGNITION_STATUS.NOT_AVAILABLE ? 'Not seen' : '—')}</span></td>
                     <td className="px-3 py-2.5 font-mono text-xs">{st.confidence != null ? `${st.confidence}%` : '—'}</td>
                     <td className="px-3 py-2.5">
                       <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold capitalize ${RESULT_STYLE[st.result] ?? ''}`}>{st.result}</span>
