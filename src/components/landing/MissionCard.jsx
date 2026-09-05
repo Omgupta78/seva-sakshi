@@ -5,7 +5,7 @@ export default function MissionCard() {
   const { t } = useLang()
 
   return (
-    <section className="relative z-10 mx-auto -mt-16 max-w-4xl px-5" aria-labelledby="mission-heading">
+    <section className="relative z-10 mx-auto max-w-4xl px-5" aria-labelledby="mission-heading">
       <h2 className="sr-only" id="mission-heading">
         Mission Statement
       </h2>
