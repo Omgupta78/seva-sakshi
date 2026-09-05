@@ -1,6 +1,9 @@
 import { delay, NotFoundError } from './apiClient.js'
 import { ORGANIZATIONS, LOCATIONS, PROJECTS } from '../data/projectsSeedData.js'
 import { validateOrganizationInput } from '../data/models.js'
+import { requirePermission } from './authz.js'
+import { PERMISSIONS } from '../data/rbac.js'
+import { record as recordAudit } from './auditService.js'
 
 // In-memory store — see apiClient.js for why, and how to swap for a real API.
 let store = [...ORGANIZATIONS]
@@ -96,6 +99,32 @@ export async function updateOrganization(id, patch) {
 
 export async function setOrganizationStatus(id, status) {
   return updateOrganization(id, { status })
+}
+
+/** Deactivate an organization (soft) — permission depends on institute vs NGO.
+ *  Historical projects, inspections and reports are preserved. */
+export async function deactivateOrganization(id, reason) {
+  await delay()
+  const found = store.find((o) => o.id === id)
+  if (!found) throw new NotFoundError(`Organization ${id} not found`)
+  requirePermission(found.category === 'ngo' ? PERMISSIONS.NGO_DEACTIVATE : PERMISSIONS.INSTITUTE_DEACTIVATE)
+  if (found.status === 'inactive') throw new Error('Organization is already inactive.')
+  found.status = 'inactive'
+  found.deactivatedAt = new Date().toISOString()
+  recordAudit('INSTITUTE_DEACTIVATED', { entityId: id, metadata: { name: found.name, category: found.category, reason: reason || undefined } })
+  return resolveOrganization(found)
+}
+
+export async function reactivateOrganization(id) {
+  await delay()
+  const found = store.find((o) => o.id === id)
+  if (!found) throw new NotFoundError(`Organization ${id} not found`)
+  requirePermission(found.category === 'ngo' ? PERMISSIONS.NGO_DEACTIVATE : PERMISSIONS.INSTITUTE_DEACTIVATE)
+  if (found.status === 'active') throw new Error('Organization is already active.')
+  found.status = 'active'
+  found.deactivatedAt = null
+  recordAudit('ORGANIZATION_REACTIVATED', { entityId: id, metadata: { name: found.name } })
+  return resolveOrganization(found)
 }
 
 export function resetOrganizationsStore() {

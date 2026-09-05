@@ -1,24 +1,37 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, UserPlus, Trash2, PauseCircle, PlayCircle } from 'lucide-react'
+import { Search, UserPlus, Trash2, PlayCircle, PauseCircle, PowerOff, Power } from 'lucide-react'
 import { useAsync } from '../../../hooks/useAsync.js'
 import { useAuth } from '../../../context/AuthContext.jsx'
+import { useToast } from '../../../context/ToastContext.jsx'
 import { PERMISSIONS } from '../../../data/rbac.js'
-import { listStudents, deactivateEnrollment, reactivateEnrollment, deleteEnrollment } from '../../../services/attendanceService.js'
+import {
+  listStudents, reactivateEnrollment, deleteEnrollment, removeFaceEnrollment, deactivateStudent, reactivateStudent,
+} from '../../../services/attendanceService.js'
+import ActionMenu from '../../../components/officer/ActionMenu.jsx'
+import ConfirmActionModal from '../../../components/officer/ConfirmActionModal.jsx'
 import { EnrollmentStatusBadge, StudentStatusBadge } from '../../../components/officer/attendance/Badges.jsx'
 
 export default function StudentsList() {
   const { hasPermission } = useAuth()
+  const toast = useToast()
   const canManage = hasPermission(PERMISSIONS.MANAGE_BIOMETRIC_ENROLLMENT)
-  const [filters, setFilters] = useState({ search: '', enrollment: 'all' })
+  const canRemoveBio = hasPermission(PERMISSIONS.BIOMETRIC_REMOVE)
+  const canDeactivate = hasPermission(PERMISSIONS.STUDENT_DEACTIVATE)
+  const [filters, setFilters] = useState({ search: '', enrollment: 'all', status: 'all' })
   const { data, loading, refetch } = useAsync(() => listStudents(filters), [JSON.stringify(filters)])
-  const [busyId, setBusyId] = useState(null)
+  const [action, setAction] = useState(null) // { type, student }
   const rows = data?.items ?? []
 
-  async function act(fn, id, confirmMsg) {
-    if (confirmMsg && !window.confirm(confirmMsg)) return
-    setBusyId(id)
-    try { await fn(id); refetch() } finally { setBusyId(null) }
+  async function run(reason) {
+    const { type, student: s } = action
+    if (type === 'remove-bio') { await removeFaceEnrollment(s.id, reason); toast.success('Face enrollment removed successfully.') }
+    else if (type === 'delete-bio') { await deleteEnrollment(s.id); toast.success('Biometric template permanently deleted.') }
+    else if (type === 'reactivate-bio') { await reactivateEnrollment(s.id); toast.success('Face enrollment reactivated.') }
+    else if (type === 'deactivate-student') { await deactivateStudent(s.id, reason); toast.success(`${s.name} deactivated successfully.`) }
+    else if (type === 'reactivate-student') { await reactivateStudent(s.id); toast.success(`${s.name} reactivated.`) }
+    setAction(null)
+    refetch()
   }
 
   return (
@@ -29,6 +42,11 @@ export default function StudentsList() {
           <label htmlFor="stu-search" className="sr-only">Search students</label>
           <input id="stu-search" type="search" placeholder="Search by name or ID…" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} className="w-full rounded-lg border border-plum-950/15 bg-white py-2 pr-3 pl-9 text-sm text-plum-950 focus:outline-none" />
         </div>
+        <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="rounded-lg border border-plum-950/15 bg-white px-2.5 py-2 text-sm text-plum-950 focus:outline-none">
+          <option value="all">All Beneficiaries</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
         <select value={filters.enrollment} onChange={(e) => setFilters({ ...filters, enrollment: e.target.value })} className="rounded-lg border border-plum-950/15 bg-white px-2.5 py-2 text-sm text-plum-950 focus:outline-none">
           <option value="all">All Enrollment</option>
           <option value="enrolled">Enrolled</option>
@@ -72,29 +90,14 @@ export default function StudentsList() {
                   {r.enrollment === 'enrolled' && <span className="ml-1 text-[10px] text-plum-950/45">{r.sampleCount} samples</span>}
                 </td>
                 <td className="px-3 py-2.5">
-                  {!canManage ? (
-                    <span className="text-xs text-plum-950/40">View only</span>
-                  ) : (
-                  <div className="flex items-center gap-1.5">
-                    {r.enrollment === 'not-enrolled' && (
-                      <Link to={`/officer/attendance/enrollment?student=${r.id}`} className="rounded-lg bg-plum-800 px-2.5 py-1.5 text-xs font-semibold text-white no-underline hover:bg-plum-700">Enroll face</Link>
-                    )}
-                    {r.enrollment === 'enrolled' && (
-                      <button type="button" disabled={busyId === r.id} onClick={() => act(deactivateEnrollment, r.id)} className="flex items-center gap-1 rounded-lg border border-plum-950/15 px-2.5 py-1.5 text-xs font-semibold text-[#a15c00] hover:bg-amber-50 disabled:opacity-50">
-                        <PauseCircle className="h-3.5 w-3.5" aria-hidden="true" /> Deactivate
-                      </button>
-                    )}
-                    {r.enrollment === 'deactivated' && (
-                      <button type="button" disabled={busyId === r.id} onClick={() => act(reactivateEnrollment, r.id)} className="flex items-center gap-1 rounded-lg border border-plum-950/15 px-2.5 py-1.5 text-xs font-semibold text-[#16794f] hover:bg-green-50 disabled:opacity-50">
-                        <PlayCircle className="h-3.5 w-3.5" aria-hidden="true" /> Reactivate
-                      </button>
-                    )}
-                    {r.enrollment !== 'not-enrolled' && (
-                      <button type="button" disabled={busyId === r.id} onClick={() => act(deleteEnrollment, r.id, `Permanently delete the biometric template for ${r.name}? This cannot be undone.`)} className="flex items-center gap-1 rounded-lg border border-[#D6262B]/25 px-2.5 py-1.5 text-xs font-semibold text-[#D6262B] hover:bg-red-50 disabled:opacity-50">
-                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> Delete
-                      </button>
-                    )}
-                  </div>
+                  <ActionMenu items={[
+                    { label: r.status === 'active' ? 'Deactivate beneficiary' : 'Reactivate beneficiary', icon: r.status === 'active' ? PowerOff : Power, tone: r.status === 'active' ? 'danger' : undefined, onClick: () => setAction({ type: r.status === 'active' ? 'deactivate-student' : 'reactivate-student', student: r }), hidden: !canDeactivate },
+                    { label: 'Remove face enrollment', icon: PauseCircle, tone: 'danger', onClick: () => setAction({ type: 'remove-bio', student: r }), hidden: !canRemoveBio || r.enrollment !== 'enrolled' },
+                    { label: 'Reactivate enrollment', icon: PlayCircle, onClick: () => setAction({ type: 'reactivate-bio', student: r }), hidden: !canManage || r.enrollment !== 'deactivated' },
+                    { label: 'Delete template', icon: Trash2, tone: 'danger', onClick: () => setAction({ type: 'delete-bio', student: r }), hidden: !canManage || r.enrollment === 'not-enrolled' },
+                  ]} />
+                  {canManage && r.enrollment === 'not-enrolled' && (
+                    <Link to={`/officer/attendance/enrollment?student=${r.id}`} className="ml-1 rounded-lg bg-plum-800 px-2.5 py-1.5 text-xs font-semibold text-white no-underline hover:bg-plum-700">Enroll face</Link>
                   )}
                 </td>
               </tr>
@@ -104,8 +107,35 @@ export default function StudentsList() {
       </div>
 
       <p className="text-[11px] text-plum-950/50">
-        Deleting a biometric template removes the face data permanently and immediately stops recognition for that person. Deactivating keeps the record but excludes them from matching until reactivated.
+        Deactivating a beneficiary or removing their face enrollment never deletes their historical attendance — those records are retained. Permanent template deletion removes the face data itself and is restricted.
       </p>
+
+      {action?.type === 'remove-bio' && (
+        <ConfirmActionModal title="Remove biometric enrollment?"
+          description={`This will disable face recognition for ${action.student.name}. Historical attendance records will remain available.`}
+          confirmLabel="Remove enrollment" loadingLabel="Removing…" onConfirm={run} onClose={() => setAction(null)} />
+      )}
+      {action?.type === 'reactivate-bio' && (
+        <ConfirmActionModal title="Reactivate enrollment?"
+          description={`Re-enable face recognition for ${action.student.name}?`}
+          confirmLabel="Reactivate" loadingLabel="Reactivating…" onConfirm={run} onClose={() => setAction(null)} />
+      )}
+      {action?.type === 'delete-bio' && (
+        <ConfirmActionModal title="Permanently delete biometric template?" tone="danger"
+          warning="This deletes the face data itself and cannot be undone."
+          description={`Delete the biometric template for ${action.student.name}? Their historical attendance stays intact. Recognition stops immediately.`}
+          confirmLabel="Delete template" loadingLabel="Deleting…" onConfirm={run} onClose={() => setAction(null)} />
+      )}
+      {action?.type === 'deactivate-student' && (
+        <ConfirmActionModal title="Deactivate beneficiary?"
+          description={`Mark ${action.student.name} inactive? Historical attendance is preserved; they will not appear in active enrollment or live recognition.`}
+          confirmLabel="Deactivate" loadingLabel="Deactivating…" onConfirm={run} onClose={() => setAction(null)} />
+      )}
+      {action?.type === 'reactivate-student' && (
+        <ConfirmActionModal title="Reactivate beneficiary?"
+          description={`Reactivate ${action.student.name}?`}
+          confirmLabel="Reactivate" loadingLabel="Reactivating…" onConfirm={run} onClose={() => setAction(null)} />
+      )}
     </div>
   )
 }

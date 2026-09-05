@@ -4,9 +4,11 @@ const STYLES = {
   online: 'bg-green-50 text-[#16794f] border-[#138808]/25',
   offline: 'bg-red-50 text-[#D6262B] border-[#D6262B]/25',
   warning: 'bg-amber-50 text-[#a15c00] border-[#e2a610]/35',
+  disabled: 'bg-gray-100 text-gray-600 border-gray-300',
+  decommissioned: 'bg-gray-100 text-gray-500 border-gray-300',
 }
-const LABEL = { online: 'Online', offline: 'Offline', warning: 'Warning' }
-const PULSE = { online: 'bg-[#138808]', offline: 'bg-[#D6262B]', warning: 'bg-[#e2a610]' }
+const LABEL = { online: 'Online', offline: 'Offline', warning: 'Warning', disabled: 'Disabled', decommissioned: 'Decommissioned' }
+const PULSE = { online: 'bg-[#138808]', offline: 'bg-[#D6262B]', warning: 'bg-[#e2a610]', disabled: 'bg-gray-400', decommissioned: 'bg-gray-400' }
 
 /** Camera health pill — online / offline / warning. */
 export default function CameraStatusBadge({ status }) {

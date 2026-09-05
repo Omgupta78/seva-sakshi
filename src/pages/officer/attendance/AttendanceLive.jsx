@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ScanFace, Play, Repeat, SlidersHorizontal, AlertCircle } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext.jsx'
+import { useToast } from '../../../context/ToastContext.jsx'
+import { PERMISSIONS } from '../../../data/rbac.js'
 import { useAsync } from '../../../hooks/useAsync.js'
 import {
-  listSessions, listStudents, recognizeFrame, markAttendance, listRecords, getAttendanceConfig,
+  listSessions, listStudents, recognizeFrame, markAttendance, listRecords, getAttendanceConfig, correctAttendance,
 } from '../../../services/attendanceService.js'
 import CameraCapture from '../../../components/officer/attendance/CameraCapture.jsx'
 import DemoScenarioSelect from '../../../components/officer/attendance/DemoScenarioSelect.jsx'
@@ -12,6 +14,7 @@ import PipelineTrace from '../../../components/officer/attendance/PipelineTrace.
 import RecognitionResult from '../../../components/officer/attendance/RecognitionResult.jsx'
 import LivenessCheck from '../../../components/officer/attendance/LivenessCheck.jsx'
 import AttendanceRecordsTable from '../../../components/officer/attendance/AttendanceRecordsTable.jsx'
+import ConfirmActionModal from '../../../components/officer/ConfirmActionModal.jsx'
 import { SessionStatusBadge } from '../../../components/officer/attendance/Badges.jsx'
 
 const REACHED = {
@@ -23,7 +26,9 @@ const REACHED = {
 }
 
 export default function AttendanceLive() {
-  const { user } = useAuth()
+  const { user, hasPermission } = useAuth()
+  const toast = useToast()
+  const [correcting, setCorrecting] = useState(null) // record pending correction
   const [params] = useSearchParams()
 
   const { data: sessionData } = useAsync(() => listSessions(), [])
@@ -178,8 +183,26 @@ export default function AttendanceLive() {
           <h2 className="text-sm font-bold text-plum-950">Marked Present {activeSession ? `— ${activeSession.subject}` : ''}</h2>
           <span className="rounded-full bg-plum-50 px-2 py-0.5 text-xs font-semibold text-plum-800">{records.length}</span>
         </div>
-        <AttendanceRecordsTable records={records} />
+        <AttendanceRecordsTable records={records} onCorrect={hasPermission(PERMISSIONS.ATTENDANCE_CORRECT) ? setCorrecting : undefined} />
+        <p className="mt-2 text-[11px] text-plum-950/45">Attendance records are never deleted. Authorised officers may correct a record with a reason — the original value is preserved in the audit trail.</p>
       </div>
+
+      {correcting && (
+        <ConfirmActionModal
+          title="Correct attendance record?"
+          description={`Change ${correcting.studentName}'s status from "${correcting.status}" to "${correcting.status === 'present' ? 'absent' : 'present'}"? The original value and your reason are stored in the audit trail.`}
+          reasonRequired reasonPlaceholder="e.g. Duplicate / incorrect recognition"
+          confirmLabel="Save correction" loadingLabel="Saving…"
+          onConfirm={async (reason) => {
+            const newStatus = correcting.status === 'present' ? 'absent' : 'present'
+            await correctAttendance(correcting.id, newStatus, reason)
+            toast.success('Attendance record corrected.')
+            setCorrecting(null)
+            refetchRecords()
+          }}
+          onClose={() => setCorrecting(null)}
+        />
+      )}
     </div>
   )
 }

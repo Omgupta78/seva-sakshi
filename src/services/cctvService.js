@@ -18,8 +18,9 @@
 import { delay, NotFoundError } from './apiClient.js'
 import { CAMERAS } from '../data/cctvSeedData.js'
 import { PROJECTS, ORGANIZATIONS, LOCATIONS } from '../data/projectsSeedData.js'
-import { requirePermission } from './authz.js'
+import { requirePermission, getActor } from './authz.js'
 import { PERMISSIONS } from '../data/rbac.js'
+import { record as recordAudit } from './auditService.js'
 
 const store = [...CAMERAS]
 
@@ -88,6 +89,41 @@ export async function getCamera(id) {
   if (!found) throw new NotFoundError(`Camera ${id} not found`)
   const cam = resolveCamera(found)
   return { ...cam, alerts: buildAlertsForCamera(cam) }
+}
+
+// --- camera lifecycle -----------------------------------------------------
+function mutateCamera(id, patch) {
+  const cam = store.find((c) => c.id === id)
+  if (!cam) throw new NotFoundError(`Camera ${id} not found`)
+  Object.assign(cam, patch)
+  return resolveCamera(cam)
+}
+
+/** Temporarily disable a camera (reversible). Historical events are kept. */
+export async function disableCamera(id, reason) {
+  requirePermission(PERMISSIONS.CAMERA_DECOMMISSION)
+  await delay(150)
+  const cam = mutateCamera(id, { status: 'disabled', disabledAt: new Date().toISOString() })
+  recordAudit('CAMERA_DISABLED', { entityId: id, projectId: cam.projectId, metadata: { reason: reason || undefined } })
+  return cam
+}
+
+/** Re-enable a disabled camera. */
+export async function enableCamera(id) {
+  requirePermission(PERMISSIONS.CAMERA_DECOMMISSION)
+  await delay(150)
+  const cam = mutateCamera(id, { status: 'online', disabledAt: null })
+  recordAudit('CAMERA_ENABLED', { entityId: id, projectId: cam.projectId })
+  return cam
+}
+
+/** Permanently retire a camera (soft) — kept for its historical record. */
+export async function decommissionCamera(id, reason) {
+  requirePermission(PERMISSIONS.CAMERA_DECOMMISSION)
+  await delay(150)
+  const cam = mutateCamera(id, { status: 'decommissioned', decommissionedAt: new Date().toISOString(), decommissionedBy: getActor().name })
+  recordAudit('CAMERA_DECOMMISSIONED', { entityId: id, projectId: cam.projectId, metadata: { reason: reason || undefined } })
+  return cam
 }
 
 /** Rolled-up fleet health for the KPI row. */

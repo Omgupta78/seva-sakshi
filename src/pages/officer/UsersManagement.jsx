@@ -1,25 +1,46 @@
 import { useState } from 'react'
-import { Users2, ShieldCheck, Check } from 'lucide-react'
+import { Users2, ShieldCheck, Check, PowerOff, Power, KeyRound, Trash2 } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync.js'
-import { listUsers, updateUserRole, setUserStatus } from '../../services/usersService.js'
+import { useAuth } from '../../context/AuthContext.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
+import { listUsers, updateUserRole, deactivateUser, activateUser, resetUserAccess, deleteUser } from '../../services/usersService.js'
 import { ROLES, ROLE_LABELS, PERMISSIONS, PERMISSION_LABELS, roleHasPermission } from '../../data/rbac.js'
+import ActionMenu from '../../components/officer/ActionMenu.jsx'
+import ConfirmActionModal from '../../components/officer/ConfirmActionModal.jsx'
 
 const ROLE_LIST = Object.values(ROLES)
 const PERM_LIST = Object.values(PERMISSIONS)
 
+const STATUS_STYLES = {
+  active: 'border-[#138808]/25 bg-green-50 text-[#16794f]',
+  deactivated: 'border-gray-300 bg-gray-100 text-gray-600',
+  suspended: 'border-[#e2a610]/35 bg-amber-50 text-[#a15c00]',
+}
+
 export default function UsersManagement() {
+  const { hasPermission } = useAuth()
+  const toast = useToast()
   const [filters, setFilters] = useState({ search: '', role: 'all' })
   const { data, loading, refetch } = useAsync(() => listUsers(filters), [JSON.stringify(filters)])
   const [busy, setBusy] = useState(null)
+  const [action, setAction] = useState(null) // { type, user }
   const rows = data?.items ?? []
+  const canDeactivate = hasPermission(PERMISSIONS.USER_DEACTIVATE)
+  const canDelete = hasPermission(PERMISSIONS.PERMANENT_DELETE)
 
   async function changeRole(id, role) {
     setBusy(id)
-    try { await updateUserRole(id, role); refetch() } finally { setBusy(null) }
+    try { await updateUserRole(id, role); toast.success('User role updated.'); refetch() } catch (e) { toast.error(e.message ?? 'Could not update role.') } finally { setBusy(null) }
   }
-  async function toggleStatus(u) {
-    setBusy(u.id)
-    try { await setUserStatus(u.id, u.status === 'active' ? 'suspended' : 'active'); refetch() } finally { setBusy(null) }
+
+  async function run() {
+    const { type, user: u } = action
+    if (type === 'deactivate') { await deactivateUser(u.id); toast.success(`${u.name} deactivated.`) }
+    else if (type === 'activate') { await activateUser(u.id); toast.success(`${u.name} activated.`) }
+    else if (type === 'reset') { await resetUserAccess(u.id); toast.success(`Access reset for ${u.name}.`) }
+    else if (type === 'delete') { await deleteUser(u.id); toast.success(`${u.name} permanently deleted.`) }
+    setAction(null)
+    refetch()
   }
 
   return (
@@ -48,11 +69,12 @@ export default function UsersManagement() {
               <th className="px-3 py-2.5 font-semibold">Role</th>
               <th className="px-3 py-2.5 font-semibold">Permissions</th>
               <th className="px-3 py-2.5 font-semibold">Status</th>
+              <th className="px-3 py-2.5 font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="px-3 py-8 text-center text-plum-950/50">Loading…</td></tr>
+              <tr><td colSpan={7} className="px-3 py-8 text-center text-plum-950/50">Loading…</td></tr>
             ) : rows.map((u) => (
               <tr key={u.id} className="border-b border-plum-950/5 text-plum-950/85 last:border-0">
                 <td className="px-3 py-2.5 font-semibold text-plum-950">{u.name}</td>
@@ -65,9 +87,15 @@ export default function UsersManagement() {
                 </td>
                 <td className="px-3 py-2.5 text-xs text-plum-950/60">{u.permissionCount} granted</td>
                 <td className="px-3 py-2.5">
-                  <button type="button" disabled={busy === u.id} onClick={() => toggleStatus(u)} className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${u.status === 'active' ? 'border-[#138808]/25 bg-green-50 text-[#16794f]' : 'border-gray-300 bg-gray-100 text-gray-600'}`}>
-                    {u.status}
-                  </button>
+                  <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[u.status] ?? STATUS_STYLES.deactivated}`}>{u.status}</span>
+                </td>
+                <td className="px-3 py-2.5">
+                  <ActionMenu items={[
+                    { label: 'Deactivate', icon: PowerOff, tone: 'danger', onClick: () => setAction({ type: 'deactivate', user: u }), hidden: !canDeactivate || u.status !== 'active' },
+                    { label: 'Activate', icon: Power, onClick: () => setAction({ type: 'activate', user: u }), hidden: !canDeactivate || u.status === 'active' },
+                    { label: 'Reset access', icon: KeyRound, onClick: () => setAction({ type: 'reset', user: u }) },
+                    { label: 'Delete permanently', icon: Trash2, tone: 'danger', onClick: () => setAction({ type: 'delete', user: u }), hidden: !canDelete },
+                  ]} />
                 </td>
               </tr>
             ))}
@@ -102,6 +130,27 @@ export default function UsersManagement() {
         </div>
         <p className="mt-2 flex items-center gap-1.5 text-[11px] text-plum-950/50"><Users2 className="h-3.5 w-3.5" aria-hidden="true" /> Column initials are role names. These permissions are enforced in the service layer, not just in the UI.</p>
       </div>
+
+      {action?.type === 'deactivate' && (
+        <ConfirmActionModal title="Deactivate user?"
+          description={`${action.user.name} will no longer be able to log in. Their historical actions, audit logs and inspection history all remain. This can be reversed.`}
+          confirmLabel="Deactivate" loadingLabel="Deactivating…" onConfirm={run} onClose={() => setAction(null)} />
+      )}
+      {action?.type === 'activate' && (
+        <ConfirmActionModal title="Activate user?" description={`Restore login access for ${action.user.name}?`}
+          confirmLabel="Activate" loadingLabel="Activating…" onConfirm={run} onClose={() => setAction(null)} />
+      )}
+      {action?.type === 'reset' && (
+        <ConfirmActionModal title="Reset access?" description={`Force ${action.user.name} to re-authenticate with new credentials? Existing sessions are invalidated.`}
+          confirmLabel="Reset access" loadingLabel="Resetting…" onConfirm={run} onClose={() => setAction(null)} />
+      )}
+      {action?.type === 'delete' && (
+        <ConfirmActionModal title="Permanently delete user?" tone="danger"
+          warning="Permanent deletion cannot be undone. Prefer deactivation unless legally required."
+          description={`This permanently removes the account for ${action.user.name}. Their audit history is retained. Type the user ID to confirm.`}
+          requireConfirmText={action.user.id}
+          confirmLabel="Delete permanently" loadingLabel="Deleting…" onConfirm={run} onClose={() => setAction(null)} />
+      )}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { delay, NotFoundError } from './apiClient.js'
 import { PROJECTS, ORGANIZATIONS, LOCATIONS, SCHEMES } from '../data/projectsSeedData.js'
 import { validateProjectInput } from '../data/models.js'
-import { requirePermission } from './authz.js'
+import { requirePermission, getActor } from './authz.js'
 import { PERMISSIONS } from '../data/rbac.js'
 import { record as recordAudit } from './auditService.js'
 
@@ -142,6 +142,57 @@ export async function updateProject(id, patch) {
   store[idx] = { ...store[idx], ...patch }
   recordAudit('EDIT_PROJECT', { entityId: id, projectId: id, metadata: { fields: Object.keys(patch).join(', ') } })
   return resolveProject(store[idx])
+}
+
+// --- lifecycle: archive (soft) / restore / permanent delete ---------------
+
+/** A project carries historical records if it has inspections, beneficiaries
+ *  or attendance — those must never be cascade-deleted. */
+function hasDependencies(p) {
+  return (p.inspectionHistory?.length ?? 0) > 0
+    || (p.beneficiaries?.length ?? 0) > 0
+    || (p.attendanceWeek?.length ?? 0) > 0
+    || (p.lastInspection && p.lastInspection !== '—')
+}
+
+/** Soft-delete: move an active project to Archived, preserving all history. */
+export async function archiveProject(id, reason) {
+  requirePermission(PERMISSIONS.PROJECT_ARCHIVE)
+  await delay()
+  const idx = store.findIndex((p) => p.id === id)
+  if (idx === -1) throw new NotFoundError(`Project ${id} not found`)
+  if (store[idx].status === 'archived') throw new Error('Project is already archived.')
+  const previousStatus = store[idx].status
+  store[idx] = { ...store[idx], status: 'archived', previousStatus, archivedAt: new Date().toISOString(), archivedBy: getActor().name }
+  recordAudit('PROJECT_ARCHIVED', { entityId: id, projectId: id, metadata: { from: previousStatus, to: 'archived', reason: reason || undefined } })
+  return resolveProject(store[idx])
+}
+
+/** Restore an archived project to its prior status. */
+export async function restoreProject(id) {
+  requirePermission(PERMISSIONS.PROJECT_ARCHIVE)
+  await delay()
+  const idx = store.findIndex((p) => p.id === id)
+  if (idx === -1) throw new NotFoundError(`Project ${id} not found`)
+  if (store[idx].status !== 'archived') throw new Error('Only an archived project can be restored.')
+  const to = store[idx].previousStatus || 'active'
+  store[idx] = { ...store[idx], status: to, archivedAt: null, archivedBy: null }
+  recordAudit('PROJECT_RESTORED', { entityId: id, projectId: id, metadata: { to } })
+  return resolveProject(store[idx])
+}
+
+/** Permanent delete — Super Admin only, and refused if history exists. */
+export async function deleteProject(id) {
+  requirePermission(PERMISSIONS.PERMANENT_DELETE)
+  await delay()
+  const found = store.find((p) => p.id === id)
+  if (!found) throw new NotFoundError(`Project ${id} not found`)
+  if (hasDependencies(found)) {
+    throw new Error('This project has historical inspections, attendance or reports. Archive it instead of permanently deleting it.')
+  }
+  store = store.filter((p) => p.id !== id)
+  recordAudit('PROJECT_DELETED', { entityId: id, projectId: id, metadata: { name: found.name } })
+  return { id, deleted: true }
 }
 
 export function resetProjectsStore() {

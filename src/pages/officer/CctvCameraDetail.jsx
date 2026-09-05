@@ -1,9 +1,15 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ChevronLeft, MapPin, Building2, FolderKanban, Radio, ShieldCheck, HeartPulse, Clock } from 'lucide-react'
+import { ChevronLeft, MapPin, Building2, FolderKanban, Radio, ShieldCheck, HeartPulse, Clock, PowerOff, Power, ArchiveX } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync.js'
-import { getCamera } from '../../services/cctvService.js'
+import { useAuth } from '../../context/AuthContext.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
+import { PERMISSIONS } from '../../data/rbac.js'
+import { getCamera, disableCamera, enableCamera, decommissionCamera } from '../../services/cctvService.js'
 import VideoPlayer from '../../components/officer/cctv/VideoPlayer.jsx'
 import CameraStatusBadge from '../../components/officer/cctv/CameraStatusBadge.jsx'
+import ActionMenu from '../../components/officer/ActionMenu.jsx'
+import ConfirmActionModal from '../../components/officer/ConfirmActionModal.jsx'
 import { ALERT_META } from '../../components/officer/cctv/alertMeta.js'
 import { formatDateTime, timeAgo } from '../../components/officer/cctv/time.js'
 
@@ -12,7 +18,19 @@ const DELIVERY_LABEL = { rtsp: 'HLS (repackaged by gateway)', webrtc: 'WebRTC (r
 
 export default function CctvCameraDetail() {
   const { cameraId } = useParams()
-  const { data: camera, loading, error } = useAsync(() => getCamera(cameraId), [cameraId])
+  const { hasPermission } = useAuth()
+  const toast = useToast()
+  const { data: camera, loading, error, refetch } = useAsync(() => getCamera(cameraId), [cameraId])
+  const [action, setAction] = useState(null)
+  const canManage = hasPermission(PERMISSIONS.CAMERA_DECOMMISSION)
+
+  async function runAction(reason) {
+    if (action === 'disable') { await disableCamera(cameraId, reason); toast.success('Camera disabled.') }
+    else if (action === 'enable') { await enableCamera(cameraId); toast.success('Camera enabled.') }
+    else if (action === 'decommission') { await decommissionCamera(cameraId, reason); toast.success('Camera decommissioned.') }
+    setAction(null)
+    refetch()
+  }
 
   if (loading) return <p className="py-12 text-center text-sm text-plum-950/50">Loading camera…</p>
   if (error || !camera) {
@@ -35,8 +53,33 @@ export default function CctvCameraDetail() {
           <h1 className="text-lg font-extrabold text-plum-950 sm:text-xl">{camera.label}</h1>
           <p className="font-mono text-xs text-plum-950/55">{camera.id} · {camera.projectName}</p>
         </div>
-        <CameraStatusBadge status={camera.status} />
+        <div className="flex items-center gap-2">
+          <CameraStatusBadge status={camera.status} />
+          {canManage && camera.status !== 'decommissioned' && (
+            <ActionMenu items={[
+              { label: 'Disable camera', icon: PowerOff, tone: 'danger', onClick: () => setAction('disable'), hidden: camera.status === 'disabled' },
+              { label: 'Enable camera', icon: Power, onClick: () => setAction('enable'), hidden: camera.status !== 'disabled' },
+              { label: 'Decommission camera', icon: ArchiveX, tone: 'danger', onClick: () => setAction('decommission') },
+            ]} />
+          )}
+        </div>
       </div>
+
+      {action === 'disable' && (
+        <ConfirmActionModal title="Disable camera?" reasonRequired reasonPlaceholder="e.g. under maintenance"
+          description={`Temporarily disable ${camera.id}? It stops streaming but historical monitoring events are kept. You can re-enable it later.`}
+          confirmLabel="Disable camera" loadingLabel="Disabling…" onConfirm={runAction} onClose={() => setAction(null)} />
+      )}
+      {action === 'enable' && (
+        <ConfirmActionModal title="Enable camera?" description={`Bring ${camera.id} back online?`}
+          confirmLabel="Enable" loadingLabel="Enabling…" onConfirm={runAction} onClose={() => setAction(null)} />
+      )}
+      {action === 'decommission' && (
+        <ConfirmActionModal title="Decommission camera?" tone="danger" reasonRequired reasonPlaceholder="e.g. hardware removed from site"
+          warning="A decommissioned camera is permanently retired from monitoring."
+          description={`Decommission ${camera.id}? Its historical events remain available for audit, but it will no longer be monitored.`}
+          confirmLabel="Decommission" loadingLabel="Decommissioning…" onConfirm={runAction} onClose={() => setAction(null)} />
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
         {/* Player + connection */}

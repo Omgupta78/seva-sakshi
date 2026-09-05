@@ -270,11 +270,41 @@ export async function listInspectionsForInspector(inspectorName) {
     .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate))
 }
 
-export async function cancelInspection(id) {
+/** Cancel a pending/active inspection. Completed inspections cannot be
+ *  cancelled — their report and evidence must remain accessible. */
+export async function cancelInspection(id, reason) {
+  requirePermission(PERMISSIONS.INSPECTION_CANCEL)
   await delay()
   const idx = store.findIndex((i) => i.id === id)
   if (idx === -1) throw new NotFoundError(`Inspection ${id} not found`)
+  if (store[idx].status === 'completed') {
+    throw new Error('A completed inspection cannot be cancelled. Archive it instead — its report and evidence are retained.')
+  }
   store[idx] = { ...store[idx], status: 'cancelled', lastUpdated: nowIso() }
+  recordAudit('INSPECTION_CANCELLED', { entityId: id, projectId: store[idx].projectId, metadata: { reason: reason || undefined } })
+  return saveAndResolve(idx)
+}
+
+/** Archive a completed inspection (soft) — hides it from active lists while
+ *  keeping the full report, checklist and evidence for authorised users. */
+export async function archiveInspection(id) {
+  requirePermission(PERMISSIONS.INSPECTION_CANCEL)
+  await delay()
+  const idx = store.findIndex((i) => i.id === id)
+  if (idx === -1) throw new NotFoundError(`Inspection ${id} not found`)
+  if (store[idx].status !== 'completed') throw new Error('Only a completed inspection can be archived.')
+  store[idx] = { ...store[idx], archived: true, archivedAt: nowIso() }
+  recordAudit('INSPECTION_ARCHIVED', { entityId: id, projectId: store[idx].projectId })
+  return saveAndResolve(idx)
+}
+
+/** Restore an archived inspection back to the active list. */
+export async function unarchiveInspection(id) {
+  requirePermission(PERMISSIONS.INSPECTION_CANCEL)
+  await delay()
+  const idx = store.findIndex((i) => i.id === id)
+  if (idx === -1) throw new NotFoundError(`Inspection ${id} not found`)
+  store[idx] = { ...store[idx], archived: false, archivedAt: null }
   return saveAndResolve(idx)
 }
 

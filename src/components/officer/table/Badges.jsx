@@ -21,6 +21,7 @@ const PROJECT_STATUS_STYLES = {
   completed: 'bg-plum-50 text-plum-800 border-plum-800/20',
   paused: 'bg-amber-50 text-[#a15c00] border-[#e2a610]/35',
   planned: 'bg-gray-100 text-gray-600 border-gray-300',
+  archived: 'bg-gray-100 text-gray-500 border-gray-300',
 }
 
 export function ProjectStatusBadge({ status }) {

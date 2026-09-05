@@ -68,7 +68,7 @@
  * @property {{x:number,y:number}|null} mapPosition  percentage coords on the schematic state map, null if unmapped
  */
 
-export const PROJECT_STATUSES = ['active', 'completed', 'paused', 'planned']
+export const PROJECT_STATUSES = ['active', 'completed', 'paused', 'planned', 'archived']
 export const RISK_LEVELS = ['healthy', 'watch', 'high']
 export const COMPLIANCE_STATUSES = ['compliant', 'watch', 'non-compliant']
 export const ORG_TYPES = ['Ashram Shala', 'Hostel', 'School', 'Skill Center', 'NGO']

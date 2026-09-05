@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Eye, Sparkles } from 'lucide-react'
+import { Eye, Sparkles, Ban, Archive } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
 import { PERMISSIONS } from '../../data/rbac.js'
-import { listInspections } from '../../services/inspectionsService.js'
+import { listInspections, cancelInspection, archiveInspection } from '../../services/inspectionsService.js'
+import ActionMenu from '../../components/officer/ActionMenu.jsx'
+import ConfirmActionModal from '../../components/officer/ConfirmActionModal.jsx'
 import { typeLabel } from '../../data/inspectionModels.js'
 import DataTable from '../../components/officer/table/DataTable.jsx'
 import Pagination from '../../components/officer/table/Pagination.jsx'
@@ -33,9 +36,12 @@ function formatDateTime(ts) {
 export default function InspectionsList() {
   const navigate = useNavigate()
   const { hasPermission } = useAuth()
+  const toast = useToast()
   const canAssign = hasPermission(PERMISSIONS.ASSIGN_INSPECTION)
+  const canCancel = hasPermission(PERMISSIONS.INSPECTION_CANCEL)
   const [filters, setFilters] = useState(initialFilters)
   const [assigning, setAssigning] = useState(null)
+  const [action, setAction] = useState(null) // { type, inspection }
 
   const { data, loading, refetch } = useAsync(() => listInspections(filters), [JSON.stringify(filters)])
 
@@ -67,10 +73,23 @@ export default function InspectionsList() {
               <Sparkles className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
+          <ActionMenu items={[
+            { label: 'View', icon: Eye, onClick: () => navigate(`/officer/inspections/${r.id}`) },
+            { label: 'Cancel inspection', icon: Ban, tone: 'danger', onClick: () => setAction({ type: 'cancel', inspection: r }), hidden: !canCancel || r.status === 'completed' || r.status === 'cancelled' },
+            { label: 'Archive inspection', icon: Archive, onClick: () => setAction({ type: 'archive', inspection: r }), hidden: !canCancel || r.status !== 'completed' || r.archived },
+          ]} />
         </div>
       ),
     },
   ]
+
+  async function runAction() {
+    const { type, inspection } = action
+    if (type === 'cancel') { await cancelInspection(inspection.id); toast.success(`Inspection ${inspection.id} cancelled.`) }
+    else if (type === 'archive') { await archiveInspection(inspection.id); toast.success(`Inspection ${inspection.id} archived.`) }
+    setAction(null)
+    refetch()
+  }
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-4">
@@ -104,6 +123,17 @@ export default function InspectionsList() {
             refetch()
           }}
         />
+      )}
+
+      {action?.type === 'cancel' && (
+        <ConfirmActionModal title="Cancel inspection?"
+          description={`Cancel inspection ${action.inspection.id} for ${action.inspection.projectName}? This is only allowed for inspections that are not yet completed.`}
+          confirmLabel="Cancel inspection" loadingLabel="Cancelling…" onConfirm={runAction} onClose={() => setAction(null)} />
+      )}
+      {action?.type === 'archive' && (
+        <ConfirmActionModal title="Archive inspection?"
+          description={`Archive completed inspection ${action.inspection.id}? Its report, checklist and evidence remain accessible to authorised users.`}
+          confirmLabel="Archive inspection" loadingLabel="Archiving…" onConfirm={runAction} onClose={() => setAction(null)} />
       )}
     </div>
   )

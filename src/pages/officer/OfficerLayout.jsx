@@ -4,6 +4,7 @@ import Sidebar from '../../components/officer/Sidebar.jsx'
 import TopBar from '../../components/officer/TopBar.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { NotificationsProvider } from '../../context/NotificationsContext.jsx'
+import { ToastProvider } from '../../context/ToastContext.jsx'
 
 /**
  * Shared chrome for every /officer/* route: persistent sidebar (an
@@ -22,6 +23,7 @@ export default function OfficerLayout() {
 
   return (
     <NotificationsProvider>
+      <ToastProvider>
       <div className="flex min-h-screen bg-paper-50">
         <a
           href="#officer-main"
@@ -39,6 +41,7 @@ export default function OfficerLayout() {
           </main>
         </div>
       </div>
+      </ToastProvider>
     </NotificationsProvider>
   )
 }

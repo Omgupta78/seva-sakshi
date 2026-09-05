@@ -17,7 +17,7 @@ import { STUDENT_SEED, SESSION_SEED } from '../data/attendanceSeedData.js'
 import { ATTENDANCE_CONFIG, validateStudentProfile, validateSession } from '../data/attendanceModels.js'
 import { loadModels, detectFaces, alignFace, computeEmbedding } from './faceRecognitionProvider.js'
 import * as vault from './biometricVault.js'
-import { requirePermission } from './authz.js'
+import { requirePermission, getActor } from './authz.js'
 import { PERMISSIONS } from '../data/rbac.js'
 import { record as recordAudit } from './auditService.js'
 
@@ -149,6 +149,66 @@ export async function setStudentStatus(id, status) {
   if (!s) throw new NotFoundError(`Student ${id} not found`)
   s.status = status
   return decorateStudent(s)
+}
+
+/** Deactivate a beneficiary (soft) — historical attendance is preserved. */
+export async function deactivateStudent(id, reason) {
+  requirePermission(PERMISSIONS.STUDENT_DEACTIVATE)
+  await ensureSeed()
+  await delay()
+  const s = students.find((x) => x.id === id)
+  if (!s) throw new NotFoundError(`Student ${id} not found`)
+  if (s.status === 'inactive') throw new Error('Beneficiary is already inactive.')
+  s.status = 'inactive'
+  recordAudit('STUDENT_DEACTIVATED', { entityId: id, projectId: s.projectId, metadata: { name: s.name, reason: reason || undefined } })
+  return decorateStudent(s)
+}
+
+export async function reactivateStudent(id) {
+  requirePermission(PERMISSIONS.STUDENT_DEACTIVATE)
+  await ensureSeed()
+  await delay()
+  const s = students.find((x) => x.id === id)
+  if (!s) throw new NotFoundError(`Student ${id} not found`)
+  s.status = 'active'
+  recordAudit('STUDENT_REACTIVATED', { entityId: id, projectId: s.projectId, metadata: { name: s.name } })
+  return decorateStudent(s)
+}
+
+/** Remove (deactivate) a beneficiary's face enrolment — disables recognition
+ *  but never touches their historical attendance records. */
+export async function removeFaceEnrollment(studentId, reason) {
+  requirePermission(PERMISSIONS.BIOMETRIC_REMOVE)
+  await ensureSeed()
+  await delay(150)
+  const meta = vault.deactivate(studentId)
+  recordAudit('BIOMETRIC_ENROLLMENT_REMOVED', { entityId: studentId, metadata: { reason: reason || undefined } })
+  return meta
+}
+
+/**
+ * Correct an attendance record with a mandatory reason. The original value is
+ * preserved in a correction trail (who / when / reason / previous / new).
+ */
+export async function correctAttendance(recordId, newStatus, reason) {
+  requirePermission(PERMISSIONS.ATTENDANCE_CORRECT)
+  await ensureSeed()
+  await delay(150)
+  if (!reason?.trim()) throw new Error('A reason is required to correct an attendance record.')
+  const rec = records.find((r) => r.id === recordId)
+  if (!rec) throw new NotFoundError(`Attendance record ${recordId} not found`)
+  const previousValue = rec.status
+  if (previousValue === newStatus) throw new Error('The record already has that status.')
+  rec.status = newStatus
+  rec.correction = {
+    previousValue,
+    newValue: newStatus,
+    reason: reason.trim(),
+    changedBy: getActor().name,
+    changedAt: new Date().toISOString(),
+  }
+  recordAudit('ATTENDANCE_CORRECTED', { entityId: recordId, projectId: rec.projectId ?? null, metadata: { student: rec.studentId, from: previousValue, to: newStatus, reason: reason.trim() } })
+  return { ...rec }
 }
 
 // --- enrolment (biometric) ------------------------------------------------

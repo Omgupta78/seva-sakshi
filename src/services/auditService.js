@@ -46,6 +46,25 @@ export const ACTION_META = {
   CHANGE_USER_ROLE: { label: 'Changed user role', entity: 'User' },
   CHANGE_USER_STATUS: { label: 'Changed user status', entity: 'User' },
   REQUEST_VIDEO_CALL: { label: 'Requested video call', entity: 'Video Call' },
+  // Lifecycle / destructive actions
+  PROJECT_ARCHIVED: { label: 'Archived project', entity: 'Project' },
+  PROJECT_RESTORED: { label: 'Restored project', entity: 'Project' },
+  PROJECT_DELETED: { label: 'Permanently deleted project', entity: 'Project' },
+  INSTITUTE_DEACTIVATED: { label: 'Deactivated organization', entity: 'Organization' },
+  ORGANIZATION_REACTIVATED: { label: 'Reactivated organization', entity: 'Organization' },
+  STUDENT_DEACTIVATED: { label: 'Deactivated beneficiary', entity: 'Beneficiary' },
+  STUDENT_REACTIVATED: { label: 'Reactivated beneficiary', entity: 'Beneficiary' },
+  BIOMETRIC_ENROLLMENT_REMOVED: { label: 'Removed biometric enrollment', entity: 'Biometric' },
+  CAMERA_DECOMMISSIONED: { label: 'Decommissioned camera', entity: 'CCTV Camera' },
+  CAMERA_DISABLED: { label: 'Disabled camera', entity: 'CCTV Camera' },
+  CAMERA_ENABLED: { label: 'Enabled camera', entity: 'CCTV Camera' },
+  INSPECTION_CANCELLED: { label: 'Cancelled inspection', entity: 'Inspection' },
+  INSPECTION_ARCHIVED: { label: 'Archived inspection', entity: 'Inspection' },
+  ATTENDANCE_CORRECTED: { label: 'Corrected attendance', entity: 'Attendance Session' },
+  USER_DEACTIVATED: { label: 'Deactivated user', entity: 'User' },
+  USER_ACTIVATED: { label: 'Activated user', entity: 'User' },
+  USER_ACCESS_RESET: { label: 'Reset user access', entity: 'User' },
+  USER_DELETED: { label: 'Permanently deleted user', entity: 'User' },
 }
 
 export const AUDIT_ENTITIES = [...new Set(Object.values(ACTION_META).map((m) => m.entity))]

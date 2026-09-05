@@ -61,3 +61,47 @@ export async function setUserStatus(id, status) {
   recordAudit('CHANGE_USER_STATUS', { entityId: id, metadata: { user: u.name, to: status } })
   return decorate(u)
 }
+
+/** Deactivate a user (soft) — they can no longer log in, but their history,
+ *  audit trail and inspection records all remain. Reversible. */
+export async function deactivateUser(id) {
+  requirePermission(PERMISSIONS.USER_DEACTIVATE)
+  await delay(150)
+  const u = store.find((x) => x.id === id)
+  if (!u) throw new NotFoundError(`User ${id} not found`)
+  if (u.status === 'deactivated') throw new Error('User is already deactivated.')
+  u.status = 'deactivated'
+  recordAudit('USER_DEACTIVATED', { entityId: id, metadata: { user: u.name } })
+  return decorate(u)
+}
+
+export async function activateUser(id) {
+  requirePermission(PERMISSIONS.USER_DEACTIVATE)
+  await delay(150)
+  const u = store.find((x) => x.id === id)
+  if (!u) throw new NotFoundError(`User ${id} not found`)
+  u.status = 'active'
+  recordAudit('USER_ACTIVATED', { entityId: id, metadata: { user: u.name } })
+  return decorate(u)
+}
+
+/** Reset a user's access (force re-authentication / new credentials). */
+export async function resetUserAccess(id) {
+  requirePermission(PERMISSIONS.MANAGE_USERS)
+  await delay(150)
+  const u = store.find((x) => x.id === id)
+  if (!u) throw new NotFoundError(`User ${id} not found`)
+  recordAudit('USER_ACCESS_RESET', { entityId: id, metadata: { user: u.name } })
+  return decorate(u)
+}
+
+/** Permanently remove a user — Super Admin only. Audit history is retained. */
+export async function deleteUser(id) {
+  requirePermission(PERMISSIONS.PERMANENT_DELETE)
+  await delay(150)
+  const u = store.find((x) => x.id === id)
+  if (!u) throw new NotFoundError(`User ${id} not found`)
+  store = store.filter((x) => x.id !== id)
+  recordAudit('USER_DELETED', { entityId: id, metadata: { user: u.name } })
+  return { id, deleted: true }
+}
