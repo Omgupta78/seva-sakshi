@@ -51,6 +51,7 @@ import InstitutionStaff from './pages/institution/InstitutionStaff.jsx'
 import InstitutionDocuments from './pages/institution/InstitutionDocuments.jsx'
 import InstitutionReadiness from './pages/institution/InstitutionReadiness.jsx'
 import InstitutionStudents from './pages/institution/InstitutionStudents.jsx'
+import InstitutionStudentProfile from './pages/institution/InstitutionStudentProfile.jsx'
 import InstitutionAttendance from './pages/institution/InstitutionAttendance.jsx'
 import InstitutionAttendanceSession from './pages/institution/InstitutionAttendanceSession.jsx'
 import InstitutionVideoCheck from './pages/institution/InstitutionVideoCheck.jsx'
@@ -138,6 +139,7 @@ export default function App() {
             <Route path="dashboard" element={<InstitutionDashboard />} />
             <Route path="my-institute" element={<InstitutionProfile />} />
             <Route path="students" element={<InstitutionStudents />} />
+            <Route path="students/:id" element={<InstitutionStudentProfile />} />
             <Route path="staff" element={<InstitutionStaff />} />
             <Route path="documents" element={<InstitutionDocuments />} />
             <Route path="inspection-readiness" element={<InstitutionReadiness />} />

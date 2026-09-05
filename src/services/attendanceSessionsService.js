@@ -153,6 +153,9 @@ export async function correctResult(id, studentId, newResult, reason) {
   await delay(150)
   const s = sessions.find((x) => x.id === id)
   if (!s) throw new NotFoundError(`Session ${id} not found`)
+  if (s.status === 'submitted') {
+    throw new Error('This session is submitted and locked. Submitted attendance cannot be edited directly — raise a correction request.')
+  }
   const st = s.students.find((x) => x.studentId === studentId)
   if (!st) throw new NotFoundError(`Student ${studentId} not in session`)
   const from = st.result
@@ -178,6 +181,12 @@ export async function submitAttendanceSession(id, { override = false } = {}) {
   await delay(250)
   const s = sessions.find((x) => x.id === id)
   if (!s) throw new NotFoundError(`Session ${id} not found`)
+  if (s.status === 'submitted') {
+    const err = new Error('This session has already been submitted and is locked.')
+    err.alreadySubmitted = true
+    throw err
+  }
+  if (!s.students.length) throw new Error('This session has no students to submit.')
   const unresolved = s.students.filter((x) => x.result === 'unknown').length
   if (unresolved > 0 && !override) {
     const err = new Error(`${unresolved} unresolved case(s) remain. Resolve them or use an authorised override.`)

@@ -12,7 +12,11 @@ import { delay, NotFoundError } from './apiClient.js'
 import { requirePermission } from './authz.js'
 import { PERMISSIONS } from '../data/rbac.js'
 import { record as recordAudit } from './auditService.js'
+import { loadModels, detectFaces, alignFace, computeEmbedding, PROVIDER_INFO } from './faceRecognitionProvider.js'
+import { enroll as vaultEnroll, getEnrollmentMeta } from './biometricVault.js'
 import { INSTITUTION_STUDENTS, TODAYS_ATTENDANCE, ATTENTION_ITEMS, CLASSES, INSTITUTION_PROFILE, INSTITUTION_STAFF, INSTITUTION_DOCUMENTS, UPCOMING_INSPECTION, READINESS_CHECKLIST } from '../data/institutionData.js'
+
+export { PROVIDER_INFO }
 
 let students = INSTITUTION_STUDENTS.map((s) => ({ ...s }))
 
@@ -109,13 +113,87 @@ export async function getInstitutionStudent(id) {
 export async function addInstitutionStudent(input) {
   requirePermission(PERMISSIONS.MANAGE_BIOMETRIC_ENROLLMENT)
   await delay()
-  if (!input.name?.trim()) { const e = new Error('Validation failed'); e.fieldErrors = { name: 'Name is required.' }; throw e }
-  if (!input.class) { const e = new Error('Validation failed'); e.fieldErrors = { class: 'Class is required.' }; throw e }
-  const id = `STU-${1001 + students.length}`
-  const record = { id, name: input.name.trim(), class: input.class, rollNo: input.rollNo || '—', status: 'active', faceEnrolled: false, attendancePct: 0, guardianPhone: input.guardianPhone || '' }
+  const fieldErrors = {}
+  if (!input.name?.trim()) fieldErrors.name = 'Name is required.'
+  if (!input.class) fieldErrors.class = 'Class is required.'
+  if (!input.section?.trim()) fieldErrors.section = 'Section is required.'
+  if (!input.rollNo?.trim()) fieldErrors.rollNo = 'Roll number is required.'
+  const wantedId = input.id?.trim()
+  if (wantedId && students.some((x) => x.id.toLowerCase() === wantedId.toLowerCase())) {
+    fieldErrors.id = `Student ID "${wantedId}" already exists.`
+  }
+  if (input.contact?.trim() && !/^[+\d][\d\s-]{6,}$/.test(input.contact.trim())) {
+    fieldErrors.contact = 'Enter a valid contact number.'
+  }
+  if (Object.keys(fieldErrors).length) { const e = new Error('Validation failed'); e.fieldErrors = fieldErrors; throw e }
+
+  // Auto-generate a non-colliding id when one wasn't supplied.
+  let id = wantedId
+  if (!id) { let n = 1001 + students.length; while (students.some((x) => x.id === `STU-${n}`)) n++; id = `STU-${n}` }
+  const record = {
+    id, name: input.name.trim(), class: input.class, section: input.section.trim(), rollNo: input.rollNo.trim(),
+    dob: input.dob || '', gender: input.gender || '', guardianName: input.guardianName?.trim() || '',
+    contact: input.contact?.trim() || '', photo: null,
+    status: 'active', faceStatus: 'not_enrolled', faceEnrolled: false, attendancePct: 0,
+  }
   students = [record, ...students]
-  recordAudit('CREATE_PROJECT', { entityId: id, entity: 'Beneficiary', metadata: { name: record.name, class: record.class } })
-  return record
+  recordAudit('STUDENT_CREATED', { entityId: id, entity: 'Student', metadata: { name: record.name, class: record.class } })
+  return { ...record }
+}
+
+/** Edit an existing student. Only roster/profile fields — never biometric data. */
+export async function updateInstitutionStudent(id, patch) {
+  requirePermission(PERMISSIONS.MANAGE_BIOMETRIC_ENROLLMENT)
+  await delay(150)
+  const s = students.find((x) => x.id === id)
+  if (!s) throw new NotFoundError(`Student ${id} not found`)
+  const fieldErrors = {}
+  if (patch.name != null && !patch.name.trim()) fieldErrors.name = 'Name is required.'
+  if (patch.section != null && !patch.section.trim()) fieldErrors.section = 'Section is required.'
+  if (patch.rollNo != null && !patch.rollNo.trim()) fieldErrors.rollNo = 'Roll number is required.'
+  if (patch.contact?.trim() && !/^[+\d][\d\s-]{6,}$/.test(patch.contact.trim())) fieldErrors.contact = 'Enter a valid contact number.'
+  if (Object.keys(fieldErrors).length) { const e = new Error('Validation failed'); e.fieldErrors = fieldErrors; throw e }
+  const allowed = ['name', 'class', 'section', 'rollNo', 'dob', 'gender', 'guardianName', 'contact']
+  for (const k of allowed) if (patch[k] != null) s[k] = typeof patch[k] === 'string' ? patch[k].trim() : patch[k]
+  recordAudit('STUDENT_UPDATED', { entityId: id, metadata: { name: s.name, class: s.class } })
+  return { ...s }
+}
+
+/**
+ * Prototype face enrolment. Captured samples are turned into embeddings by the
+ * (currently simulated) recognition provider and handed STRAIGHT to the
+ * biometric vault — no embedding is ever returned to the caller or the UI.
+ * Only a status flag + non-biometric metadata come back.
+ */
+export async function enrollStudentFace(id, { samples = 3 } = {}) {
+  requirePermission(PERMISSIONS.MANAGE_BIOMETRIC_ENROLLMENT)
+  await delay(250)
+  const s = students.find((x) => x.id === id)
+  if (!s) throw new NotFoundError(`Student ${id} not found`)
+  await loadModels()
+  const embeddings = []
+  for (let i = 0; i < samples; i++) {
+    const det = detectFaces(null, { scenario: 'one', identityToken: id })[0]
+    if (!det) { const e = new Error('No face detected — please try again in better light.'); e.code = 'NO_FACE'; throw e }
+    embeddings.push(computeEmbedding(alignFace(det), { identityToken: id, sampleIndex: i }))
+  }
+  vaultEnroll(id, embeddings) // embeddings never leave the vault boundary
+  s.faceStatus = 'enrolled'
+  s.faceEnrolled = true
+  recordAudit('FACE_ENROLLED', { entityId: id, metadata: { name: s.name, samples } })
+  return { student: { ...s }, enrollment: getEnrollmentMeta(id) } // meta only, no templates
+}
+
+/** Update a student's face-enrolment status flag (no embeddings pass through here). */
+export async function setStudentFaceStatus(id, faceStatus) {
+  requirePermission(PERMISSIONS.MANAGE_BIOMETRIC_ENROLLMENT)
+  await delay(150)
+  const s = students.find((x) => x.id === id)
+  if (!s) throw new NotFoundError(`Student ${id} not found`)
+  s.faceStatus = faceStatus
+  s.faceEnrolled = faceStatus === 'enrolled'
+  recordAudit('FACE_ENROLLMENT_STATUS', { entityId: id, metadata: { name: s.name, status: faceStatus } })
+  return { ...s }
 }
 
 export async function setInstitutionStudentStatus(id, status) {

@@ -1,27 +1,28 @@
 import { useState } from 'react'
-import { Search, UserPlus, PowerOff, Power, Eye } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Search, UserPlus, PowerOff, Power, Eye, Pencil, ScanFace } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { PERMISSIONS } from '../../data/rbac.js'
-import { listInstitutionStudents, getInstitutionStudent, addInstitutionStudent, setInstitutionStudentStatus, CLASSES } from '../../services/institutionService.js'
+import { listInstitutionStudents, addInstitutionStudent, setInstitutionStudentStatus, CLASSES } from '../../services/institutionService.js'
+import { sectionOf } from '../../data/institutionData.js'
 import Dialog from '../../components/officer/Dialog.jsx'
 import ActionMenu from '../../components/officer/ActionMenu.jsx'
 import ConfirmActionModal from '../../components/officer/ConfirmActionModal.jsx'
-
-function Badge({ ok, on, off }) {
-  return <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${ok ? 'border-[#138808]/25 bg-green-50 text-[#16794f]' : 'border-gray-300 bg-gray-100 text-gray-600'}`}>{ok ? on : off}</span>
-}
+import EditStudentDialog from '../../components/institution/EditStudentDialog.jsx'
+import { faceMeta, statusMeta } from '../../components/institution/studentMeta.js'
 
 export default function InstitutionStudents() {
+  const navigate = useNavigate()
   const { hasPermission } = useAuth()
   const toast = useToast()
   const canManage = hasPermission(PERMISSIONS.MANAGE_BIOMETRIC_ENROLLMENT)
   const canDeactivate = hasPermission(PERMISSIONS.STUDENT_DEACTIVATE)
   const [filters, setFilters] = useState({ search: '', cls: 'all', status: 'all' })
   const { data, loading, refetch } = useAsync(() => listInstitutionStudents(filters), [JSON.stringify(filters)])
-  const [viewing, setViewing] = useState(null)
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState(null)
   const [statusAction, setStatusAction] = useState(null)
   const rows = data?.items ?? []
 
@@ -45,52 +46,59 @@ export default function InstitutionStudents() {
           <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-plum-950/40" aria-hidden="true" />
           <input type="search" placeholder="Search by name or ID…" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} className="w-full rounded-lg border border-plum-950/15 bg-white py-2 pr-3 pl-9 text-sm focus:outline-none" />
         </div>
-        <select value={filters.cls} onChange={(e) => setFilters({ ...filters, cls: e.target.value })} className="rounded-lg border border-plum-950/15 bg-white px-2.5 py-2 text-sm focus:outline-none">
+        <select value={filters.cls} onChange={(e) => setFilters({ ...filters, cls: e.target.value })} className="rounded-lg border border-plum-950/15 bg-white px-2.5 py-2 text-sm focus:outline-none" aria-label="Filter by class">
           <option value="all">All Classes</option>{CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
-        <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="rounded-lg border border-plum-950/15 bg-white px-2.5 py-2 text-sm focus:outline-none">
-          <option value="all">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option>
+        <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="rounded-lg border border-plum-950/15 bg-white px-2.5 py-2 text-sm focus:outline-none" aria-label="Filter by status">
+          <option value="all">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="pending_verification">Pending Verification</option>
         </select>
         {canManage && <button type="button" onClick={() => setAdding(true)} className="ml-auto flex items-center gap-1.5 rounded-lg bg-plum-800 px-3.5 py-2 text-sm font-semibold text-white hover:bg-plum-700"><UserPlus className="h-4 w-4" aria-hidden="true" /> Add Student</button>}
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-plum-950/10 bg-white shadow-sm">
-        <table className="w-full min-w-[820px] border-collapse text-left text-sm">
+        <table className="w-full min-w-[880px] border-collapse text-left text-sm">
           <thead>
             <tr className="border-b border-plum-950/10 bg-plum-50/60 text-xs text-plum-950/60 uppercase">
-              <th className="px-3 py-2.5 font-semibold">ID</th><th className="px-3 py-2.5 font-semibold">Name</th><th className="px-3 py-2.5 font-semibold">Class</th>
+              <th className="px-3 py-2.5 font-semibold">ID</th><th className="px-3 py-2.5 font-semibold">Name</th><th className="px-3 py-2.5 font-semibold">Class</th><th className="px-3 py-2.5 font-semibold">Section</th>
               <th className="px-3 py-2.5 font-semibold">Status</th><th className="px-3 py-2.5 font-semibold">Face Enrolment</th><th className="px-3 py-2.5 font-semibold">Attendance</th><th className="px-3 py-2.5 font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-plum-950/50">Loading…</td></tr>
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-plum-950/50">Loading…</td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={7} className="px-3 py-10 text-center text-plum-950/50">No students match these filters.</td></tr>
-            ) : rows.map((r) => (
-              <tr key={r.id} className="border-b border-plum-950/5 text-plum-950/85 last:border-0">
-                <td className="px-3 py-2.5 font-mono text-xs font-semibold text-plum-950">{r.id}</td>
-                <td className="px-3 py-2.5 font-semibold text-plum-950">{r.name}</td>
-                <td className="px-3 py-2.5">{r.class}</td>
-                <td className="px-3 py-2.5"><Badge ok={r.status === 'active'} on="Active" off="Inactive" /></td>
-                <td className="px-3 py-2.5"><Badge ok={r.faceEnrolled} on="Enrolled" off="Not enrolled" /></td>
-                <td className="px-3 py-2.5"><span className={`font-semibold ${r.attendancePct < 75 ? 'text-[#a15c00]' : 'text-plum-950'}`}>{r.attendancePct}%</span></td>
-                <td className="px-3 py-2.5">
-                  <ActionMenu items={[
-                    { label: 'View', icon: Eye, onClick: () => setViewing(r) },
-                    { label: 'Deactivate', icon: PowerOff, tone: 'danger', onClick: () => setStatusAction({ student: r, to: 'inactive' }), hidden: !canDeactivate || r.status !== 'active' },
-                    { label: 'Reactivate', icon: Power, onClick: () => setStatusAction({ student: r, to: 'active' }), hidden: !canDeactivate || r.status === 'active' },
-                  ]} />
-                </td>
-              </tr>
-            ))}
+              <tr><td colSpan={8} className="px-3 py-10 text-center text-plum-950/50">No students match these filters.</td></tr>
+            ) : rows.map((r) => {
+              const fm = faceMeta(r.faceStatus)
+              const sm = statusMeta(r.status)
+              return (
+                <tr key={r.id} className="border-b border-plum-950/5 text-plum-950/85 last:border-0 hover:bg-plum-50/40">
+                  <td className="px-3 py-2.5 font-mono text-xs font-semibold text-plum-950">{r.id}</td>
+                  <td className="px-3 py-2.5"><button type="button" onClick={() => navigate(`/institution/students/${r.id}`)} className="font-semibold text-plum-950 hover:text-plum-800 hover:underline">{r.name}</button></td>
+                  <td className="px-3 py-2.5">{r.class}</td>
+                  <td className="px-3 py-2.5">{r.section ?? sectionOf(r.class)}</td>
+                  <td className="px-3 py-2.5"><span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${sm.cls}`}>{sm.label}</span></td>
+                  <td className="px-3 py-2.5"><span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${fm.cls}`}>{fm.label}</span></td>
+                  <td className="px-3 py-2.5"><span className={`font-semibold ${r.attendancePct < 75 ? 'text-[#a15c00]' : 'text-plum-950'}`}>{r.attendancePct}%</span></td>
+                  <td className="px-3 py-2.5">
+                    <ActionMenu items={[
+                      { label: 'View profile', icon: Eye, onClick: () => navigate(`/institution/students/${r.id}`) },
+                      { label: 'Edit', icon: Pencil, onClick: () => setEditing(r), hidden: !canManage },
+                      { label: 'Enrol face', icon: ScanFace, onClick: () => navigate(`/institution/students/${r.id}`), hidden: !canManage || r.faceStatus === 'enrolled' },
+                      { label: 'Deactivate', icon: PowerOff, tone: 'danger', onClick: () => setStatusAction({ student: r, to: 'inactive' }), hidden: !canDeactivate || r.status !== 'active' },
+                      { label: 'Reactivate', icon: Power, onClick: () => setStatusAction({ student: r, to: 'active' }), hidden: !canDeactivate || r.status === 'active' },
+                    ]} />
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
       <p className="text-[11px] text-plum-950/50">Face enrolment status is shown as a flag only — biometric templates are never exposed here.</p>
 
-      {viewing && <StudentDialog id={viewing.id} onClose={() => setViewing(null)} />}
       {adding && <AddStudentDialog onClose={() => setAdding(false)} onAdded={() => { setAdding(false); toast.success('Student added.'); refetch() }} />}
+      {editing && <EditStudentDialog student={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); toast.success('Student updated.'); refetch() }} />}
       {statusAction && (
         <ConfirmActionModal
           title={statusAction.to === 'active' ? 'Reactivate student?' : 'Deactivate student?'}
@@ -102,38 +110,21 @@ export default function InstitutionStudents() {
   )
 }
 
-function StudentDialog({ id, onClose }) {
-  const { data: s } = useAsync(() => getInstitutionStudent(id), [id])
-  return (
-    <Dialog title={s ? s.name : 'Student'} size="md" onClose={onClose}>
-      {!s ? <p className="text-sm text-plum-950/50">Loading…</p> : (
-        <div className="space-y-3">
-          <dl className="grid grid-cols-2 gap-3 text-sm">
-            {[['Student ID', s.id], ['Class', s.class], ['Roll No', s.rollNo], ['Status', s.status], ['Face enrolment', s.faceEnrolled ? 'Enrolled' : 'Not enrolled'], ['Attendance', `${s.attendancePct}%`]].map(([k, v]) => (
-              <div key={k}><dt className="text-[11px] font-semibold tracking-wide text-plum-950/50 uppercase">{k}</dt><dd className="mt-0.5 capitalize text-plum-950/85">{v}</dd></div>
-            ))}
-          </dl>
-          <div>
-            <p className="mb-1 text-[11px] font-semibold tracking-wide text-plum-950/50 uppercase">Attendance history (last 7 days)</p>
-            <div className="flex gap-1.5">
-              {s.history.map((h) => <span key={h.date} title={`${h.date}: ${h.present ? 'Present' : 'Absent'}`} className={`h-6 flex-1 rounded ${h.present ? 'bg-[#138808]' : 'bg-[#D6262B]/70'}`} />)}
-            </div>
-          </div>
-        </div>
-      )}
-    </Dialog>
-  )
-}
-
 function AddStudentDialog({ onClose, onAdded }) {
-  const [form, setForm] = useState({ name: '', class: CLASSES[0], rollNo: '', guardianPhone: '' })
+  const [form, setForm] = useState({ id: '', name: '', class: CLASSES[0], section: sectionOf(CLASSES[0]), rollNo: '', dob: '', gender: '', guardianName: '', contact: '' })
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
+
+  function set(k, v) {
+    setForm((f) => (k === 'class' ? { ...f, class: v, section: sectionOf(v) } : { ...f, [k]: v }))
+  }
+
   async function submit(e) {
     e.preventDefault(); setErrors({}); setSaving(true)
     try { await addInstitutionStudent(form); onAdded() }
     catch (err) { setErrors(err.fieldErrors ?? { name: err.message }); setSaving(false) }
   }
+
   return (
     <Dialog title="Add Student" size="md" onClose={onClose} footer={
       <>
@@ -142,23 +133,56 @@ function AddStudentDialog({ onClose, onAdded }) {
       </>
     }>
       <form id="add-student-form" onSubmit={submit} className="space-y-3">
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-plum-950/70">Full name</label>
-          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full rounded-lg border border-plum-950/15 px-3 py-2 text-sm focus:outline-none" />
-          {errors.name && <p className="mt-1 text-xs font-medium text-[#D6262B]">{errors.name}</p>}
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Student ID" error={errors.id} hint="Leave blank to auto-generate">
+            <input value={form.id} onChange={(e) => set('id', e.target.value)} placeholder="e.g. STU-1050" className="w-full rounded-lg border border-plum-950/15 px-3 py-2 text-sm focus:outline-none" />
+          </Field>
+          <Field label="Roll No *" error={errors.rollNo}>
+            <input value={form.rollNo} onChange={(e) => set('rollNo', e.target.value)} className="w-full rounded-lg border border-plum-950/15 px-3 py-2 text-sm focus:outline-none" />
+          </Field>
+        </div>
+        <Field label="Full name *" error={errors.name}>
+          <input value={form.name} onChange={(e) => set('name', e.target.value)} className="w-full rounded-lg border border-plum-950/15 px-3 py-2 text-sm focus:outline-none" />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Class *" error={errors.class}>
+            <select value={form.class} onChange={(e) => set('class', e.target.value)} className="w-full rounded-lg border border-plum-950/15 bg-white px-3 py-2 text-sm focus:outline-none">{CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}</select>
+          </Field>
+          <Field label="Section *" error={errors.section}>
+            <input value={form.section} onChange={(e) => set('section', e.target.value)} className="w-full rounded-lg border border-plum-950/15 px-3 py-2 text-sm focus:outline-none" />
+          </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-plum-950/70">Class</label>
-            <select value={form.class} onChange={(e) => setForm({ ...form, class: e.target.value })} className="w-full rounded-lg border border-plum-950/15 bg-white px-3 py-2 text-sm focus:outline-none">{CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}</select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-plum-950/70">Roll No</label>
-            <input value={form.rollNo} onChange={(e) => setForm({ ...form, rollNo: e.target.value })} className="w-full rounded-lg border border-plum-950/15 px-3 py-2 text-sm focus:outline-none" />
-          </div>
+          <Field label="Date of birth">
+            <input type="date" value={form.dob} onChange={(e) => set('dob', e.target.value)} className="w-full rounded-lg border border-plum-950/15 px-3 py-2 text-sm focus:outline-none" />
+          </Field>
+          <Field label="Gender">
+            <select value={form.gender} onChange={(e) => set('gender', e.target.value)} className="w-full rounded-lg border border-plum-950/15 bg-white px-3 py-2 text-sm focus:outline-none">
+              <option value="">—</option><option>Male</option><option>Female</option><option>Other</option>
+            </select>
+          </Field>
         </div>
-        <p className="text-[11px] text-plum-950/50">Face enrolment is done separately during an attendance session — no biometric data is entered here.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Guardian name">
+            <input value={form.guardianName} onChange={(e) => set('guardianName', e.target.value)} className="w-full rounded-lg border border-plum-950/15 px-3 py-2 text-sm focus:outline-none" />
+          </Field>
+          <Field label="Contact" error={errors.contact}>
+            <input value={form.contact} onChange={(e) => set('contact', e.target.value)} placeholder="+91 …" className="w-full rounded-lg border border-plum-950/15 px-3 py-2 text-sm focus:outline-none" />
+          </Field>
+        </div>
+        <p className="text-[11px] text-plum-950/50">Face enrolment is done from the student profile — no biometric data is entered here.</p>
       </form>
     </Dialog>
+  )
+}
+
+function Field({ label, error, hint, children }) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-semibold text-plum-950/70">{label}</label>
+      {children}
+      {hint && !error && <p className="mt-1 text-[10px] text-plum-950/45">{hint}</p>}
+      {error && <p className="mt-1 text-xs font-medium text-[#D6262B]">{error}</p>}
+    </div>
   )
 }

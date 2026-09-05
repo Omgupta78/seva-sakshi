@@ -18,22 +18,42 @@ export const CLASSES = ['Class 10-A', 'Class 10-B', 'Class 11-A', 'Class 12-A']
 const FIRST = ['Aarav', 'Isha', 'Kabir', 'Neha', 'Rohan', 'Sanya', 'Yash', 'Pooja', 'Aditya', 'Riya', 'Om', 'Diya', 'Karan', 'Simran', 'Aryan', 'Meera', 'Vivaan', 'Anaya', 'Reyansh', 'Kiara', 'Advait', 'Myra', 'Kabir', 'Tara']
 const LAST = ['Shinde', 'Pawar', 'Jadhav', 'Mane', 'Chavan', 'Bhosale', 'More', 'Kale', 'Salunkhe', 'Gaikwad', 'Kadam', 'Nikam']
 
+/** Student lifecycle statuses. */
+export const STUDENT_STATUSES = ['active', 'inactive', 'pending_verification']
+/** Face enrolment lifecycle — a flag only; no biometric templates live here. */
+export const FACE_STATUSES = ['not_enrolled', 'pending', 'enrolled', 'requires_review']
+
 function seeded(n, i) { return (n * 37 + i * 101) % 1000 }
+/** Section is the trailing letter of the class label (e.g. "Class 10-A" -> "A"). */
+export function sectionOf(cls) { return (cls?.split('-')[1] ?? '').trim() || '—' }
 
 /** Roster for the demo institution INST-001 (Government Ashram Shala, Wada). */
 export const INSTITUTION_STUDENTS = Array.from({ length: 24 }, (_, i) => {
   const cls = CLASSES[i % CLASSES.length]
   const s = seeded(7, i)
   const attendancePct = 68 + (s % 30)
+  // A realistic spread across the four face-enrolment states for the demo.
+  const faceStatus = s % 11 === 0 ? 'requires_review' : s % 3 === 0 ? 'not_enrolled' : s % 7 === 0 ? 'pending' : 'enrolled'
+  const status = s % 13 === 0 ? 'pending_verification' : s % 11 === 0 ? 'inactive' : 'active'
+  const year = 2007 + (i % 4)
+  const month = `${(i % 12) + 1}`.padStart(2, '0')
+  const day = `${(i % 27) + 1}`.padStart(2, '0')
   return {
     id: `STU-${1001 + i}`,
     name: `${FIRST[i % FIRST.length]} ${LAST[(i * 3) % LAST.length]}`,
     class: cls,
+    section: sectionOf(cls),
     rollNo: `${(i % 6) + 1}`.padStart(2, '0'),
-    status: s % 11 === 0 ? 'inactive' : 'active',
-    faceEnrolled: s % 3 !== 0,
+    dob: `${year}-${month}-${day}`,
+    gender: i % 2 === 0 ? 'Male' : 'Female',
+    guardianName: `${FIRST[(i * 5) % FIRST.length]} ${LAST[(i * 3) % LAST.length]}`,
+    contact: `+91 9${((s * 137) % 900000000 + 100000000)}`.slice(0, 13),
+    photo: null,
+    status,
+    faceStatus,
+    // Derived boolean kept for back-compatibility with existing summaries.
+    faceEnrolled: faceStatus === 'enrolled',
     attendancePct,
-    guardianPhone: `+91 9${(s * 137) % 900000000 + 100000000}`.slice(0, 13),
   }
 })
 
