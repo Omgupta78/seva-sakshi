@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Search, ScrollText, ShieldCheck, Lock } from 'lucide-react'
+import { Search, ShieldCheck, Lock } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync.js'
 import { listAuditLogs, getAuditFilterOptions, getAuditStats, ACTION_META } from '../../services/auditService.js'
 import { ROLE_LABELS } from '../../data/rbac.js'
