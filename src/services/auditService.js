@@ -65,6 +65,15 @@ export const ACTION_META = {
   USER_ACTIVATED: { label: 'Activated user', entity: 'User' },
   USER_ACCESS_RESET: { label: 'Reset user access', entity: 'User' },
   USER_DELETED: { label: 'Permanently deleted user', entity: 'User' },
+  // Session-based attendance lifecycle
+  ATTENDANCE_SESSION_CREATED: { label: 'Created attendance session', entity: 'Attendance Session' },
+  ATTENDANCE_STARTED: { label: 'Started attendance capture', entity: 'Attendance Session' },
+  FACE_MATCH_RESULT: { label: 'Recorded face-match results', entity: 'Attendance Session' },
+  ATTENDANCE_CONFIRMED: { label: 'Confirmed attendance result', entity: 'Attendance Session' },
+  ATTENDANCE_SUBMITTED: { label: 'Submitted attendance', entity: 'Attendance Session' },
+  ATTENDANCE_REOPENED: { label: 'Reopened attendance session', entity: 'Attendance Session' },
+  ATTENDANCE_REVIEWED: { label: 'Reviewed attendance', entity: 'Attendance Session' },
+  ATTENDANCE_VERIFICATION_FINDING: { label: 'Attendance verification finding', entity: 'Inspection' },
 }
 
 export const AUDIT_ENTITIES = [...new Set(Object.values(ACTION_META).map((m) => m.entity))]

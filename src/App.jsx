@@ -40,13 +40,15 @@ import InspectorInspections from './pages/inspector/InspectorInspections.jsx'
 import InspectorInspectionDetail from './pages/inspector/InspectorInspectionDetail.jsx'
 import InspectorEvidence from './pages/inspector/InspectorEvidence.jsx'
 import InspectorReports from './pages/inspector/InspectorReports.jsx'
-import { InspectorNotifications, InspectorSettings, InspectorAttendanceVerification, InspectorEvidenceHub } from './pages/inspector/InspectorSimplePages.jsx'
+import InspectorAttendanceVerification from './pages/inspector/InspectorAttendanceVerification.jsx'
+import { InspectorNotifications, InspectorSettings, InspectorEvidenceHub } from './pages/inspector/InspectorSimplePages.jsx'
 // Institution portal
 import InstitutionLogin from './pages/institution/InstitutionLogin.jsx'
 import InstitutionLayout from './pages/institution/InstitutionLayout.jsx'
 import InstitutionDashboard from './pages/institution/InstitutionDashboard.jsx'
 import InstitutionStudents from './pages/institution/InstitutionStudents.jsx'
 import InstitutionAttendance from './pages/institution/InstitutionAttendance.jsx'
+import InstitutionAttendanceSession from './pages/institution/InstitutionAttendanceSession.jsx'
 import InstitutionVideoCheck from './pages/institution/InstitutionVideoCheck.jsx'
 import InstitutionInspections from './pages/institution/InstitutionInspections.jsx'
 import InstitutionNotifications from './pages/institution/InstitutionNotifications.jsx'
@@ -131,6 +133,7 @@ export default function App() {
             <Route path="students" element={<InstitutionStudents />} />
             <Route path="attendance" element={<InstitutionAttendance />} />
             <Route path="attendance/sessions" element={<InstitutionAttendance />} />
+            <Route path="attendance/session/:id" element={<InstitutionAttendanceSession />} />
             <Route path="video-check" element={<InstitutionVideoCheck />} />
             <Route path="inspections" element={<InstitutionInspections />} />
             <Route path="notifications" element={<InstitutionNotifications />} />

@@ -5,9 +5,16 @@ import { useAuth } from '../../../context/AuthContext.jsx'
 import { useAsync } from '../../../hooks/useAsync.js'
 import { listProjects } from '../../../services/projectsService.js'
 import { getAttendanceStats, listSessions, createSession, closeSession, getAttendanceConfig } from '../../../services/attendanceService.js'
+import { getAttendanceMonitoring } from '../../../services/attendanceSessionsService.js'
 import { SESSION_SUBJECTS } from '../../../data/attendanceModels.js'
 import StatCard from '../../../components/officer/StatCard.jsx'
 import { SessionStatusBadge } from '../../../components/officer/attendance/Badges.jsx'
+
+const MON_STATUS = {
+  Normal: 'border-[#138808]/25 bg-green-50 text-[#16794f]',
+  Watch: 'border-[#e2a610]/35 bg-amber-50 text-[#a15c00]',
+  'Requires Review': 'border-[#D6262B]/25 bg-red-50 text-[#D6262B]',
+}
 
 export default function AttendanceHub() {
   const { user } = useAuth()
@@ -19,6 +26,7 @@ export default function AttendanceHub() {
   const { data: sessionData, refetch: refetchSessions } = useAsync(() => listSessions(), [])
   const { data: config } = useAsync(() => getAttendanceConfig(), [])
   const { data: projectData } = useAsync(() => listProjects({ pageSize: 100 }), [])
+  const { data: monitoring } = useAsync(() => getAttendanceMonitoring(), [])
 
   const sessions = sessionData?.items ?? []
   const projects = projectData?.items ?? []
@@ -52,6 +60,37 @@ export default function AttendanceHub() {
         <StatCard label="Face-Enrolled" value={stats?.enrolled ?? '—'} accent="#138808" />
         <StatCard label="Active Sessions" value={stats?.activeSessions ?? '—'} accent="#e2a610" />
         <StatCard label="Present Today" value={stats?.presentToday ?? '—'} accent="#3a1d70" />
+      </div>
+
+      {/* Institution attendance monitoring — Department monitors; institutions operate. */}
+      <div className="rounded-2xl border border-plum-950/10 bg-white p-4 shadow-sm sm:p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-bold text-plum-950">Institution Attendance Monitoring</h2>
+          {monitoring && <span className="text-xs text-plum-950/55">{monitoring.pendingSubmissions} pending submission(s) · overall {monitoring.overallPct}%</span>}
+        </div>
+        <div className="overflow-x-auto rounded-xl border border-plum-950/10">
+          <table className="w-full min-w-[560px] border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-plum-950/10 bg-plum-50/60 text-xs text-plum-950/60 uppercase">
+                <th className="px-3 py-2.5 font-semibold">Institution · Class</th><th className="px-3 py-2.5 font-semibold">Students</th><th className="px-3 py-2.5 font-semibold">Attendance</th><th className="px-3 py-2.5 font-semibold">Today</th><th className="px-3 py-2.5 font-semibold">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {!monitoring ? (
+                <tr><td colSpan={5} className="px-3 py-6 text-center text-plum-950/50">Loading…</td></tr>
+              ) : monitoring.byClass.map((c) => (
+                <tr key={c.class} className="border-b border-plum-950/5 last:border-0 text-plum-950/85">
+                  <td className="px-3 py-2.5 font-semibold text-plum-950">Govt Ashram Shala, Wada · {c.class}</td>
+                  <td className="px-3 py-2.5">{c.students}</td>
+                  <td className="px-3 py-2.5 font-semibold">{c.attendancePct}%</td>
+                  <td className="px-3 py-2.5">{c.pendingSubmission ? <span className="text-xs font-semibold text-[#a15c00]">Pending</span> : <span className="text-xs text-[#16794f]">Submitted</span>}</td>
+                  <td className="px-3 py-2.5"><span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${MON_STATUS[c.status] ?? ''}`}>{c.status}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-2 text-[11px] text-plum-950/50">The Department monitors and audits institution attendance — it does not run routine daily sessions. Unusual patterns surface in <Link to="/officer/analytics" className="text-plum-800 hover:underline">AI Analytics</Link>.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.4fr]">

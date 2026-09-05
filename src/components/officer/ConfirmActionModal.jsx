@@ -28,6 +28,7 @@ export default function ConfirmActionModal({
   reasonPlaceholder = 'Reason for this change…',
   onConfirm,
   onClose,
+  children,
 }) {
   const [typed, setTyped] = useState('')
   const [reason, setReason] = useState('')
@@ -79,6 +80,7 @@ export default function ConfirmActionModal({
         )}
         <p className="text-sm text-plum-950/80">{description}</p>
         {tone !== 'danger' && warning && <p className="text-xs text-plum-950/55">{warning}</p>}
+        {children}
 
         {reasonRequired && (
           <div>

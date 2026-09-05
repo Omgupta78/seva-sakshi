@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Home, ListChecks, FileText, Bell, LogOut, ChevronDown } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { ToastProvider } from '../../context/ToastContext.jsx'
 import { InspectorProvider, useInspector } from '../../context/InspectorContext.jsx'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus.js'
 import OfflineBanner from '../../components/inspector/OfflineBanner.jsx'
@@ -104,8 +105,10 @@ function InspectorChrome() {
 /** Shared chrome for every /inspector/* route: mobile-first header, offline banner, bottom tab bar. */
 export default function InspectorLayout() {
   return (
-    <InspectorProvider>
-      <InspectorChrome />
-    </InspectorProvider>
+    <ToastProvider>
+      <InspectorProvider>
+        <InspectorChrome />
+      </InspectorProvider>
+    </ToastProvider>
   )
 }
