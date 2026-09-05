@@ -20,6 +20,52 @@ export const ROLES = {
   DISTRICT_AUTHORITY: 'DISTRICT_AUTHORITY',
   NGO_INSTITUTE: 'NGO_INSTITUTE',
   VIEW_ONLY: 'VIEW_ONLY',
+  // Institution portal
+  INSTITUTION_ADMIN: 'INSTITUTION_ADMIN',
+  INSTITUTION_STAFF: 'INSTITUTION_STAFF',
+  // Inspector portal
+  INSPECTOR: 'INSPECTOR',
+}
+
+/** The three portals of Seva Sakshi. Roles belong to exactly one portal
+ *  (SUPER_ADMIN is portal-agnostic and may enter any). */
+export const PORTALS = { DEPARTMENT: 'department', INSTITUTION: 'institution', INSPECTOR: 'inspector' }
+
+export const ROLE_PORTAL = {
+  SUPER_ADMIN: PORTALS.DEPARTMENT, // home portal; can still access all
+  DOSJE_OFFICER: PORTALS.DEPARTMENT,
+  PMU_OFFICER: PORTALS.DEPARTMENT,
+  STATE_AUTHORITY: PORTALS.DEPARTMENT,
+  DISTRICT_AUTHORITY: PORTALS.DEPARTMENT,
+  NGO_INSTITUTE: PORTALS.DEPARTMENT,
+  VIEW_ONLY: PORTALS.DEPARTMENT,
+  INSTITUTION_ADMIN: PORTALS.INSTITUTION,
+  INSTITUTION_STAFF: PORTALS.INSTITUTION,
+  INSPECTOR: PORTALS.INSPECTOR,
+  INSPECTION_TEAM: PORTALS.INSPECTOR,
+}
+
+export const PORTAL_HOME = {
+  department: '/officer/dashboard',
+  institution: '/institution/dashboard',
+  inspector: '/inspector/dashboard',
+}
+
+export const PORTAL_LOGIN = {
+  department: '/login',
+  institution: '/institution/login',
+  inspector: '/inspector/login',
+}
+
+/** Which portal a role belongs to; SUPER_ADMIN passes any portal check. */
+export function portalForRole(role) {
+  return ROLE_PORTAL[role] ?? PORTALS.DEPARTMENT
+}
+export function roleCanAccessPortal(role, portal) {
+  return role === ROLES.SUPER_ADMIN || portalForRole(role) === portal
+}
+export function homeForRole(role) {
+  return PORTAL_HOME[portalForRole(role)] ?? '/login'
 }
 
 export const ROLE_LABELS = {
@@ -31,6 +77,9 @@ export const ROLE_LABELS = {
   DISTRICT_AUTHORITY: 'District Authority',
   NGO_INSTITUTE: 'NGO / Institute',
   VIEW_ONLY: 'View Only',
+  INSTITUTION_ADMIN: 'Institution Admin',
+  INSTITUTION_STAFF: 'Teacher / Staff',
+  INSPECTOR: 'Inspector',
 }
 
 export const ROLE_DESCRIPTIONS = {
@@ -42,6 +91,9 @@ export const ROLE_DESCRIPTIONS = {
   DISTRICT_AUTHORITY: 'District-level oversight — read access scoped to the district.',
   NGO_INSTITUTE: 'View own project, upload documents, view own inspections and attendance.',
   VIEW_ONLY: 'Read-only access to projects and inspections.',
+  INSTITUTION_ADMIN: 'Operate the institution — students, daily attendance, enrolment and reviews.',
+  INSTITUTION_STAFF: 'Teacher — run attendance sessions for assigned classes.',
+  INSPECTOR: 'Field inspector — view assignments, conduct inspections, capture evidence, submit reports.',
 }
 
 export const PERMISSIONS = {
@@ -147,6 +199,20 @@ export const ROLE_PERMISSIONS = {
 
   VIEW_ONLY: [
     P.VIEW_PROJECTS, P.VIEW_INSPECTIONS, P.VIEW_NOTIFICATIONS,
+  ],
+
+  // --- Institution portal ---
+  INSTITUTION_ADMIN: [
+    P.VIEW_ATTENDANCE, P.MANAGE_BIOMETRIC_ENROLLMENT, P.BIOMETRIC_REMOVE, P.STUDENT_DEACTIVATE,
+    P.VIEW_INSPECTIONS, P.VIEW_VIDEO_CHECK, P.VIEW_NOTIFICATIONS,
+  ],
+  INSTITUTION_STAFF: [
+    P.VIEW_ATTENDANCE, P.MANAGE_BIOMETRIC_ENROLLMENT, P.VIEW_NOTIFICATIONS,
+  ],
+
+  // --- Inspector portal ---
+  INSPECTOR: [
+    P.VIEW_INSPECTIONS, P.START_INSPECTION, P.SUBMIT_INSPECTION, P.VIEW_ATTENDANCE, P.VIEW_NOTIFICATIONS,
   ],
 }
 

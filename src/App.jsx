@@ -2,7 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import RequirePermission from './components/RequirePermission.jsx'
-import { PERMISSIONS } from './data/rbac.js'
+import PortalRoute from './components/PortalRoute.jsx'
+import { PERMISSIONS, PORTALS } from './data/rbac.js'
 import UsersManagement from './pages/officer/UsersManagement.jsx'
 import AuditLogs from './pages/officer/AuditLogs.jsx'
 import Landing from './pages/Landing.jsx'
@@ -33,10 +34,23 @@ import PrintableInspectionReport from './pages/officer/PrintableInspectionReport
 import Notifications from './pages/officer/Notifications.jsx'
 import Settings from './pages/officer/Settings.jsx'
 import InspectorLayout from './pages/inspector/InspectorLayout.jsx'
+import InspectorLogin from './pages/inspector/InspectorLogin.jsx'
 import InspectorHome from './pages/inspector/InspectorHome.jsx'
 import InspectorInspections from './pages/inspector/InspectorInspections.jsx'
 import InspectorInspectionDetail from './pages/inspector/InspectorInspectionDetail.jsx'
 import InspectorEvidence from './pages/inspector/InspectorEvidence.jsx'
+import InspectorReports from './pages/inspector/InspectorReports.jsx'
+import { InspectorNotifications, InspectorSettings, InspectorAttendanceVerification, InspectorEvidenceHub } from './pages/inspector/InspectorSimplePages.jsx'
+// Institution portal
+import InstitutionLogin from './pages/institution/InstitutionLogin.jsx'
+import InstitutionLayout from './pages/institution/InstitutionLayout.jsx'
+import InstitutionDashboard from './pages/institution/InstitutionDashboard.jsx'
+import InstitutionStudents from './pages/institution/InstitutionStudents.jsx'
+import InstitutionAttendance from './pages/institution/InstitutionAttendance.jsx'
+import InstitutionVideoCheck from './pages/institution/InstitutionVideoCheck.jsx'
+import InstitutionInspections from './pages/institution/InstitutionInspections.jsx'
+import InstitutionNotifications from './pages/institution/InstitutionNotifications.jsx'
+import InstitutionSettings from './pages/institution/InstitutionSettings.jsx'
 
 export default function App() {
   return (
@@ -45,6 +59,10 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
+          {/* Portal-specific login entry points (one auth system, role-based redirect). */}
+          <Route path="/officer/login" element={<Login />} />
+          <Route path="/institution/login" element={<InstitutionLogin />} />
+          <Route path="/inspector/login" element={<InspectorLogin />} />
 
           {/* Earlier institute-monitoring dashboard — kept available at its original URL. */}
           <Route
@@ -61,7 +79,9 @@ export default function App() {
             path="/officer"
             element={
               <ProtectedRoute>
-                <OfficerLayout />
+                <PortalRoute portal={PORTALS.DEPARTMENT}>
+                  <OfficerLayout />
+                </PortalRoute>
               </ProtectedRoute>
             }
           >
@@ -95,21 +115,50 @@ export default function App() {
             <Route path="settings" element={<Settings />} />
           </Route>
 
-          {/* Field inspector workspace — mobile-first shell, same session gate. */}
+          {/* Institution / NGO portal — operate, record, review. */}
+          <Route
+            path="/institution"
+            element={
+              <ProtectedRoute>
+                <PortalRoute portal={PORTALS.INSTITUTION}>
+                  <InstitutionLayout />
+                </PortalRoute>
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<InstitutionDashboard />} />
+            <Route path="students" element={<InstitutionStudents />} />
+            <Route path="attendance" element={<InstitutionAttendance />} />
+            <Route path="attendance/sessions" element={<InstitutionAttendance />} />
+            <Route path="video-check" element={<InstitutionVideoCheck />} />
+            <Route path="inspections" element={<InstitutionInspections />} />
+            <Route path="notifications" element={<InstitutionNotifications />} />
+            <Route path="settings" element={<InstitutionSettings />} />
+          </Route>
+
+          {/* Field inspector workspace — mobile-first shell, portal-gated. */}
           <Route
             path="/inspector"
             element={
               <ProtectedRoute>
-                <RequirePermission permission={PERMISSIONS.START_INSPECTION}>
+                <PortalRoute portal={PORTALS.INSPECTOR}>
                   <InspectorLayout />
-                </RequirePermission>
+                </PortalRoute>
               </ProtectedRoute>
             }
           >
-            <Route index element={<InspectorHome />} />
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<InspectorHome />} />
+            <Route path="assignments" element={<InspectorInspections />} />
             <Route path="inspections" element={<InspectorInspections />} />
             <Route path="inspections/:id" element={<InspectorInspectionDetail />} />
             <Route path="inspections/:id/evidence" element={<InspectorEvidence />} />
+            <Route path="attendance-verification" element={<InspectorAttendanceVerification />} />
+            <Route path="evidence" element={<InspectorEvidenceHub />} />
+            <Route path="reports" element={<InspectorReports />} />
+            <Route path="notifications" element={<InspectorNotifications />} />
+            <Route path="settings" element={<InspectorSettings />} />
           </Route>
         </Routes>
       </BrowserRouter>

@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Home, ClipboardList, LogOut, ChevronDown } from 'lucide-react'
+import { Home, ListChecks, FileText, Bell, LogOut, ChevronDown } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { InspectorProvider, useInspector } from '../../context/InspectorContext.jsx'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus.js'
@@ -7,8 +7,10 @@ import OfflineBanner from '../../components/inspector/OfflineBanner.jsx'
 import EmblemMark from '../../components/EmblemMark.jsx'
 
 const TABS = [
-  { to: '/inspector', label: 'Home', icon: Home, end: true },
-  { to: '/inspector/inspections', label: 'Inspections', icon: ClipboardList, end: false },
+  { to: '/inspector/dashboard', label: 'Home', icon: Home, end: false },
+  { to: '/inspector/assignments', label: 'Assignments', icon: ListChecks, end: false },
+  { to: '/inspector/reports', label: 'Reports', icon: FileText, end: false },
+  { to: '/inspector/notifications', label: 'Alerts', icon: Bell, end: false },
 ]
 
 function InspectorChrome() {
@@ -19,7 +21,7 @@ function InspectorChrome() {
 
   function handleLogout() {
     logout()
-    navigate('/login')
+    navigate('/inspector/login')
   }
 
   return (

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
-import { ROLES, roleHasPermission, permissionsForRole } from '../data/rbac.js'
+import { ROLES, roleHasPermission, permissionsForRole, portalForRole, homeForRole } from '../data/rbac.js'
 import { setActiveRole, setActiveUser } from '../services/authz.js'
 
 /**
@@ -76,6 +76,8 @@ export function AuthProvider({ children }) {
     user,
     isAuthenticated: !!user,
     role: rbacRole,
+    portal: rbacRole ? portalForRole(rbacRole) : null,
+    portalHome: rbacRole ? homeForRole(rbacRole) : '/login',
     permissions: rbacRole ? permissionsForRole(rbacRole) : [],
     hasPermission,
     login,
