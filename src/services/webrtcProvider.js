@@ -127,6 +127,7 @@ export function createCallSession({ localStream, onOpen, onStatus, onRemoteStrea
   let reconnects = 0
   let switching = false // true while we intentionally tear down a peer to rebuild it
   let callWatch = null // polls the RTCPeerConnection so camera-off calls still connect
+  let connectTimer = null // fails a call that never establishes (e.g. a ghost peer)
 
   /** Destroy the current peer as part of a rebuild (retry / fallback), without
    *  letting its 'close' event surface as a spurious 'ended' to the UI. */
@@ -136,14 +137,25 @@ export function createCallSession({ localStream, onOpen, onStatus, onRemoteStrea
   }
 
   function stopWatch() { if (callWatch) { clearInterval(callWatch); callWatch = null } }
+  function clearConnectTimer() { if (connectTimer) { clearTimeout(connectTimer); connectTimer = null } }
 
-  function markConnected() { onStatus?.('connected'); stopWatch() }
+  function markConnected() { clearConnectTimer(); onStatus?.('connected'); stopWatch() }
 
   function bindCall(call) {
     currentCall = call
     call.on('stream', (remote) => { onRemoteStream?.(remote); markConnected() })
-    call.on('close', () => { stopWatch(); onStatus?.('ended') })
-    call.on('error', (e) => { stopWatch(); onError?.(mapError(e)) })
+    call.on('close', () => { clearConnectTimer(); stopWatch(); onStatus?.('ended') })
+    call.on('error', (e) => { clearConnectTimer(); stopWatch(); onError?.(mapError(e)) })
+    // A call that never connects must not hang on "Calling…" forever — this is
+    // exactly what happens when dialing a ghost id on the public broker (the id
+    // is registered but the dead peer never answers). Fail it after a while with
+    // guidance to use the shareable code instead.
+    clearConnectTimer()
+    connectTimer = setTimeout(() => {
+      stopWatch()
+      try { call.close() } catch { /* noop */ }
+      onError?.('No answer — the other device didn’t connect. It may be offline, or reachable at a temporary code (ask them for it and use “Call code”).')
+    }, 25000)
     // Report 'connected' from the underlying RTCPeerConnection too, so a call
     // still shows connected when a side has no camera and sends no media (no
     // remote 'stream' event). Real camera calls also fire the 'stream' path.
@@ -269,6 +281,10 @@ export function createCallSession({ localStream, onOpen, onStatus, onRemoteStrea
       const short = normalizeCode(remoteId)
       if (!short) return onError?.('Enter the other device’s code.')
       if (short === code) return onError?.('That is your own code — enter the OTHER device’s code.')
+      // Drop any previous, still-ringing attempt (e.g. a stuck call to a ghost
+      // id) before placing the new one, so re-dialing cleanly switches targets.
+      clearConnectTimer(); stopWatch()
+      try { currentCall?.close() } catch { /* noop */ }
       onStatus?.('calling')
       // Use our real media, or a minimal placeholder stream when the camera is
       // unavailable (receive-only — the other side's video still comes through,
@@ -278,10 +294,11 @@ export function createCallSession({ localStream, onOpen, onStatus, onRemoteStrea
       bindCall(c)
     },
     /** Hang up the current call but keep the session (peer) alive. */
-    hangup() { stopWatch(); try { currentCall?.close() } catch { /* noop */ } currentCall = null },
+    hangup() { clearConnectTimer(); stopWatch(); try { currentCall?.close() } catch { /* noop */ } currentCall = null },
     /** Tear everything down (call + peer). */
     destroy() {
       destroyed = true
+      clearConnectTimer()
       stopWatch()
       if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
       if (openTimer) { clearTimeout(openTimer); openTimer = null }

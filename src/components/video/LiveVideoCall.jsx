@@ -177,7 +177,7 @@ export default function LiveVideoCall({ title = 'Live Video Call', subtitle, onC
             <p className="mb-1 text-[11px] font-semibold tracking-wide text-white/50 uppercase">Enter the other device’s 6-char code</p>
             <div className="flex items-center gap-2">
               <input value={remoteInput} onChange={(e) => setRemoteInput(e.target.value.toUpperCase())} maxLength={12} placeholder="e.g. 4F7K2Q" className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/40 px-3 py-2 text-center font-mono text-xl tracking-[0.3em] text-white placeholder:tracking-normal placeholder:text-white/30 focus:outline-none" />
-              <button type="button" onClick={placeCall} disabled={!peerId || !remoteInput.trim() || status === 'calling'} className="flex items-center gap-1.5 rounded-lg bg-plum-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-plum-600 disabled:opacity-40">
+              <button type="button" onClick={placeCall} disabled={!peerId || !remoteInput.trim()} className="flex items-center gap-1.5 rounded-lg bg-plum-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-plum-600 disabled:opacity-40">
                 <PhoneCall className="h-4 w-4" aria-hidden="true" /> Call
               </button>
             </div>
