@@ -163,7 +163,7 @@ session → Open Camera → Allow** when the browser asks for camera permission.
 #### A permanent (fixed) phone URL — ngrok free static domain
 
 `npm run share` / the quick tunnel give a **new random** `*.trycloudflare.com`
-URL each run. To get a **stable** URL like `https://your-name.ngrok-free.app`
+URL each run. To get a **stable** URL like `https://your-name.ngrok-free.dev`
 that never changes, use ngrok's **free static domain** (one per free account —
 no domain purchase needed).
 
@@ -173,14 +173,14 @@ no domain purchase needed).
 2. Install ngrok: `winget install ngrok.ngrok`
 3. Add your authtoken (from the dashboard): `ngrok config add-authtoken <YOUR_TOKEN>`
 4. In the dashboard, open **Domains** and claim your free static domain, e.g.
-   `your-name.ngrok-free.app`.
+   `your-name.ngrok-free.dev`.
 5. Put it in a `.env` file in the project root:
 
    ```
-   NGROK_DOMAIN=your-name.ngrok-free.app
+   NGROK_DOMAIN=your-name.ngrok-free.dev
    ```
 
-Vite already trusts `*.ngrok-free.app`, so nothing else to configure. (The
+Vite already trusts `*.ngrok-free.dev`, so nothing else to configure. (The
 authtoken lives in ngrok's own config, never in this repo.)
 
 **Every time you want the app on your phone** (two terminals):
@@ -196,7 +196,7 @@ npm run tunnel
 **On your phone, always open the same URL:**
 
 ```
-https://your-name.ngrok-free.app
+https://your-name.ngrok-free.dev
 ```
 
 Then: **Institute login → Attendance → Start Attendance Session → open the
