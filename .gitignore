@@ -30,3 +30,6 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+
+# ngrok local config (contains your authtoken — keep private)
+ngrok.yml

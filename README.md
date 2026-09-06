@@ -160,6 +160,54 @@ session → Open Camera → Allow** when the browser asks for camera permission.
 > iPhone Safari only grants camera on a genuine `https://` origin (which the
 > tunnel provides) and requires you to tap **Allow** on the permission prompt.
 
+#### A permanent (fixed) phone URL — ngrok free static domain
+
+`npm run share` / the quick tunnel give a **new random** `*.trycloudflare.com`
+URL each run. To get a **stable** URL like `https://your-name.ngrok-free.app`
+that never changes, use ngrok's **free static domain** (one per free account —
+no domain purchase needed).
+
+**One-time setup:**
+
+1. Create a free account at <https://dashboard.ngrok.com>.
+2. Install ngrok: `winget install ngrok.ngrok`
+3. Add your authtoken (from the dashboard): `ngrok config add-authtoken <YOUR_TOKEN>`
+4. In the dashboard, open **Domains** and claim your free static domain, e.g.
+   `your-name.ngrok-free.app`.
+5. Put it in a `.env` file in the project root:
+
+   ```
+   NGROK_DOMAIN=your-name.ngrok-free.app
+   ```
+
+Vite already trusts `*.ngrok-free.app`, so nothing else to configure. (The
+authtoken lives in ngrok's own config, never in this repo.)
+
+**Every time you want the app on your phone** (two terminals):
+
+```bash
+# terminal 1 — dev server
+npm run dev -- --host
+
+# terminal 2 — open your permanent ngrok tunnel (reads NGROK_DOMAIN from .env)
+npm run tunnel
+```
+
+**On your phone, always open the same URL:**
+
+```
+https://your-name.ngrok-free.app
+```
+
+Then: **Institute login → Attendance → Start Attendance Session → open the
+session → Open Camera → Allow.** Because it's a real `https://` origin, the
+camera works on Android Chrome and iPhone Safari, and the URL is identical every
+session — no copy-pasting a fresh link each time.
+
+> `npm run tunnel` points ngrok at `http://localhost:5173` (the dev server). If
+> you serve a preview build instead (`npm run preview -- --port 4173`), change
+> the port in `ngrok.ps1`.
+
 ### METHOD B — Production / staging HTTPS deployment
 
 ```
