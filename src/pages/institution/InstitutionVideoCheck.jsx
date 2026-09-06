@@ -6,6 +6,7 @@ import LiveVideoCall from '../../components/video/LiveVideoCall.jsx'
 export default function InstitutionVideoCheck() {
   const { user } = useAuth()
   const [liveCall, setLiveCall] = useState(false)
+  const instituteCode = user?.institutionId ?? 'INST-001'
 
   return (
     <div className="mx-auto max-w-[1000px] space-y-4">
@@ -14,14 +15,14 @@ export default function InstitutionVideoCheck() {
         <p className="text-sm text-plum-950/60">Join a live video call with the Department or an inspector.</p>
       </div>
 
-      {/* Real WebRTC 2-device call */}
+      {/* Real WebRTC — go online so the Department can ring this institution. */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#138808]/25 bg-green-50/50 p-4 shadow-sm sm:p-5">
         <div className="min-w-0">
           <h2 className="flex items-center gap-1.5 text-sm font-bold text-plum-950"><Video className="h-4 w-4 text-[#16794f]" aria-hidden="true" /> Live Video Call — real WebRTC</h2>
-          <p className="mt-0.5 text-xs text-plum-950/60">Open the call, then paste the code shared by the Department/inspector (or share yours). Uses your real camera and microphone.</p>
+          <p className="mt-0.5 text-xs text-plum-950/60">Go online to receive calls. The Department rings your institution code <span className="font-mono font-semibold text-plum-950">{instituteCode}</span> and this screen shows an incoming call to Accept. Uses your real camera/mic.</p>
         </div>
         <button type="button" onClick={() => setLiveCall(true)} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#138808] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f6b06]">
-          <Video className="h-4 w-4" aria-hidden="true" /> Join Live Video Call
+          <Video className="h-4 w-4" aria-hidden="true" /> Go Online to Receive Calls
         </button>
       </div>
 
@@ -39,7 +40,7 @@ export default function InstitutionVideoCheck() {
         </div>
       </div>
 
-      {liveCall && <LiveVideoCall title="Institution — Live Video Call" subtitle={user?.institutionName ?? user?.name} onClose={() => setLiveCall(false)} />}
+      {liveCall && <LiveVideoCall title="Institution — Live Video Call" subtitle={`${user?.institutionName ?? user?.name} · reachable as ${instituteCode}`} fixedCode={instituteCode} onClose={() => setLiveCall(false)} />}
     </div>
   )
 }

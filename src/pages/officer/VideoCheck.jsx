@@ -22,6 +22,8 @@ export default function VideoCheck() {
   const [requesting, setRequesting] = useState(false)
   const [activeCall, setActiveCall] = useState(null)
   const [liveCall, setLiveCall] = useState(false)
+  const [autoCall, setAutoCall] = useState(null)
+  const [callCode, setCallCode] = useState('INST-001')
 
   const { data: projectData } = useAsync(() => getVideoCheckProjects(), [])
   const { data: callData, loading: callsLoading, refetch: refetchCalls } = useAsync(() => listCalls(), [])
@@ -92,15 +94,22 @@ export default function VideoCheck() {
         </p>
       </div>
 
-      {/* Real WebRTC 2-device call — genuine peer-to-peer, not simulated. */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#138808]/25 bg-green-50/50 p-4 shadow-sm sm:p-5">
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-1.5 text-sm font-bold text-plum-950"><Video className="h-4 w-4 text-[#16794f]" aria-hidden="true" /> Live Video Call — real WebRTC (2 devices)</h2>
-          <p className="mt-0.5 text-xs text-plum-950/60">Genuine peer-to-peer video. Open this on two devices, share the code, and connect. Uses your real camera and microphone.</p>
+      {/* Real WebRTC — call an online institution by its code, or a manual 2-device call. */}
+      <div className="rounded-2xl border border-[#138808]/25 bg-green-50/50 p-4 shadow-sm sm:p-5">
+        <h2 className="flex items-center gap-1.5 text-sm font-bold text-plum-950"><Video className="h-4 w-4 text-[#16794f]" aria-hidden="true" /> Live Video Call — real WebRTC</h2>
+        <p className="mt-0.5 text-xs text-plum-950/60">Genuine peer-to-peer video using your real camera/mic. Ring an institution that is online (it must open Video Check → “Go Online”), or start a manual call and share the code.</p>
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label htmlFor="call-inst" className="mb-1 block text-xs font-semibold text-plum-950/70">Institution code to ring</label>
+            <input id="call-inst" value={callCode} onChange={(e) => setCallCode(e.target.value.toUpperCase())} placeholder="e.g. INST-001" className="w-full rounded-lg border border-plum-950/15 bg-white px-3 py-2 font-mono text-sm text-plum-950 focus:outline-none" />
+          </div>
+          <button type="button" onClick={() => { setAutoCall(callCode.trim()); setLiveCall(true) }} disabled={!callCode.trim()} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#138808] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f6b06] disabled:opacity-50">
+            <Video className="h-4 w-4" aria-hidden="true" /> Call Institution
+          </button>
+          <button type="button" onClick={() => { setAutoCall(null); setLiveCall(true) }} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#138808]/40 bg-white px-4 py-2 text-sm font-semibold text-[#16794f] hover:bg-green-50">
+            Start Manual Call
+          </button>
         </div>
-        <button type="button" onClick={() => setLiveCall(true)} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#138808] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f6b06]">
-          <Video className="h-4 w-4" aria-hidden="true" /> Start Live Video Call
-        </button>
       </div>
 
       {/* Step 1 — select project + start */}
@@ -159,7 +168,7 @@ export default function VideoCheck() {
 
       {/* Active call overlay */}
       {activeCall && <VideoCallStage call={activeCall} onClose={handleCloseCall} />}
-      {liveCall && <LiveVideoCall title="Department — Live Video Call" subtitle={user?.name} onClose={() => setLiveCall(false)} />}
+      {liveCall && <LiveVideoCall title="Department — Live Video Call" subtitle={user?.name} autoCallCode={autoCall} onClose={() => { setLiveCall(false); setAutoCall(null) }} />}
     </div>
   )
 }

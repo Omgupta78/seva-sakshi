@@ -11,7 +11,7 @@ import { createCallSession, SIGNALING_LABEL, SELF_HOSTED } from '../../services/
  * `title`/`subtitle` let each portal label the call context; behaviour is
  * identical everywhere.
  */
-export default function LiveVideoCall({ title = 'Live Video Call', subtitle, onClose }) {
+export default function LiveVideoCall({ title = 'Live Video Call', subtitle, onClose, fixedCode = null, autoCallCode = null }) {
   const localRef = useRef(null)
   const remoteRef = useRef(null)
   const sessionRef = useRef(null)
@@ -23,6 +23,7 @@ export default function LiveVideoCall({ title = 'Live Video Call', subtitle, onC
   const [mediaError, setMediaError] = useState(null)
   const [error, setError] = useState(null)
   const [remoteInput, setRemoteInput] = useState('')
+  const [incoming, setIncoming] = useState(false)
   const [muted, setMutedState] = useState(false)
   const [cameraOff, setCameraOffState] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -39,10 +40,18 @@ export default function LiveVideoCall({ title = 'Live Video Call', subtitle, onC
       if (!res.hasVideo) setCameraOffState(true)
       session = createCallSession({
         localStream: res.stream,
-        onOpen: (id) => { if (!disposed) { setPeerId(id); setStatus((s) => (s === 'starting-media' ? 'ready' : s)) } },
+        fixedCode,
+        onOpen: (id) => {
+          if (disposed) return
+          setPeerId(id)
+          setStatus((s) => (s === 'starting-media' ? 'ready' : s))
+          // Department flow: auto-dial the institution's code once we're open.
+          if (autoCallCode) { setStatus('calling'); session.call(autoCallCode) }
+        },
         onStatus: (s) => { if (!disposed) setStatus(s) },
-        onRemoteStream: (remote) => { if (!disposed) setRemoteStream(remote) },
-        onError: (msg) => { if (!disposed) { setError(msg); setStatus('error') } },
+        onIncoming: () => { if (!disposed) setIncoming(true) },
+        onRemoteStream: (remote) => { if (!disposed) { setIncoming(false); setRemoteStream(remote) } },
+        onError: (msg) => { if (!disposed) { setError(msg); setStatus((s) => (s === 'connected' ? s : 'error')) } },
       })
       sessionRef.current = session
     })()
@@ -53,6 +62,9 @@ export default function LiveVideoCall({ title = 'Live Video Call', subtitle, onC
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  function acceptIncoming() { setIncoming(false); sessionRef.current?.accept() }
+  function declineIncoming() { setIncoming(false); sessionRef.current?.decline() }
 
   useEffect(() => { if (localRef.current && localStream) localRef.current.srcObject = localStream }, [localStream])
   useEffect(() => { if (remoteRef.current && remoteStream) remoteRef.current.srcObject = remoteStream }, [remoteStream])
@@ -81,9 +93,9 @@ export default function LiveVideoCall({ title = 'Live Video Call', subtitle, onC
 
   const statusText = {
     'starting-media': 'Starting your camera…',
-    ready: 'Ready — share your code or enter the other device’s code',
+    ready: fixedCode ? `Online — reachable as ${peerId ?? '…'}. Waiting for a call.` : 'Ready — share your code or enter the other device’s code',
     calling: 'Calling…',
-    incoming: 'Incoming connection…',
+    incoming: 'Incoming call…',
     connected: 'Connected',
     disconnected: 'Signaling disconnected — reopen to reconnect',
     ended: 'Call ended',
@@ -131,6 +143,16 @@ export default function LiveVideoCall({ title = 'Live Video Call', subtitle, onC
           </div>
         </div>
       </div>
+
+      {incoming && !connected && (
+        <div className="mx-4 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-green-400/40 bg-green-500/15 p-3">
+          <span className="flex items-center gap-2 text-sm font-semibold text-green-200"><PhoneCall className="h-5 w-5 animate-pulse" aria-hidden="true" /> Incoming video call…</span>
+          <div className="flex gap-2">
+            <button type="button" onClick={declineIncoming} className="flex items-center gap-1.5 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white/80 hover:bg-white/20"><PhoneOff className="h-4 w-4" aria-hidden="true" /> Decline</button>
+            <button type="button" onClick={acceptIncoming} className="flex items-center gap-1.5 rounded-full bg-[#138808] px-5 py-2 text-sm font-bold text-white hover:bg-[#0f6b06]"><PhoneCall className="h-4 w-4" aria-hidden="true" /> Accept</button>
+          </div>
+        </div>
+      )}
 
       {mediaError && <p className="mx-4 mt-2 rounded-lg bg-amber-500/15 px-3 py-2 text-xs text-amber-200">{mediaError}</p>}
       {error && <p className="mx-4 mt-2 rounded-lg bg-red-500/15 px-3 py-2 text-xs text-red-200">{error}</p>}

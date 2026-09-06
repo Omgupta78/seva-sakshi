@@ -77,38 +77,54 @@ export function normalizeCode(input) {
   return String(input || '').trim().toUpperCase().replace(/\s+/g, '').replace(CODE_NAMESPACE.toUpperCase(), '')
 }
 
-export function createCallSession({ localStream, onOpen, onStatus, onRemoteStream, onError }) {
+export function createCallSession({ localStream, onOpen, onStatus, onRemoteStream, onError, onIncoming, fixedCode = null }) {
   let peer = null
   let currentCall = null
+  let pendingCall = null // incoming call awaiting Accept/Decline
   let stream = localStream
-  let code = randomCode()
+  // A fixed code (e.g. an institution ID) makes this device reachable at a
+  // stable address so callers don't need a copy-pasted code.
+  const fixed = fixedCode ? normalizeCode(fixedCode) : null
+  let code = fixed ?? randomCode()
   let retries = 0
 
   function bindCall(call) {
     currentCall = call
     call.on('stream', (remote) => { onRemoteStream?.(remote); onStatus?.('connected') })
-    call.on('close', () => onStatus?.('ended'))
-    call.on('error', (e) => onError?.(mapError(e)))
+    call.on('close', () => { clearInterval(watch); onStatus?.('ended') })
+    call.on('error', (e) => { clearInterval(watch); onError?.(mapError(e)) })
+    // Fallback: report 'connected' from the underlying RTCPeerConnection too,
+    // so a call still shows connected when one side has its camera off (no
+    // remote 'stream' event). Real camera calls also fire the 'stream' path.
+    const watch = setInterval(() => {
+      const pc = call.peerConnection
+      if (!pc) return
+      if (pc.connectionState === 'connected' || pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        onStatus?.('connected'); clearInterval(watch)
+      } else if (['failed', 'closed'].includes(pc.connectionState)) {
+        clearInterval(watch)
+      }
+    }, 500)
   }
 
   function buildPeer() {
     peer = new Peer(CODE_NAMESPACE + code, peerOptions())
-    peer.on('open', () => onOpen?.(code)) // hand the UI the SHORT code
+    peer.on('open', () => onOpen?.(code)) // hand the UI the code
     peer.on('call', (call) => {
+      // Do NOT auto-answer — surface an incoming-call notification and let the
+      // user Accept (which starts their media) or Decline.
+      pendingCall = call
       onStatus?.('incoming')
-      call.answer(stream ?? undefined) // answer with our real local media
-      bindCall(call)
+      onIncoming?.({ from: call.peer })
+      call.on('close', () => { if (pendingCall === call) { pendingCall = null; onStatus?.('ended') } })
     })
     peer.on('disconnected', () => onStatus?.('disconnected'))
     peer.on('close', () => onStatus?.('ended'))
     peer.on('error', (e) => {
-      // Rare collision on the shared broker → pick a new code and retry once or twice.
-      if (e?.type === 'unavailable-id' && retries < 3) {
-        retries += 1
-        code = randomCode()
-        try { peer?.destroy() } catch { /* noop */ }
-        buildPeer()
-        return
+      if (e?.type === 'unavailable-id') {
+        // A fixed code is already held by another device — never silently change it.
+        if (fixed) { onError?.('This code is already online on another device. Only one device per code can be reachable.'); return }
+        if (retries < 3) { retries += 1; code = randomCode(); try { peer?.destroy() } catch { /* noop */ } buildPeer(); return }
       }
       onError?.(mapError(e))
     })
@@ -117,16 +133,32 @@ export function createCallSession({ localStream, onOpen, onStatus, onRemoteStrea
 
   return {
     get peerId() { return code },
+    get hasIncoming() { return !!pendingCall },
     setLocalStream(s) { stream = s },
-    /** Initiate a call to another device's SHORT code. */
+    /** Accept the pending incoming call (answers with our local media, or an
+     *  empty stream when the camera is unavailable → receive-only). */
+    accept() {
+      if (!pendingCall) return
+      pendingCall.answer(stream ?? new MediaStream())
+      bindCall(pendingCall)
+      pendingCall = null
+    },
+    /** Decline the pending incoming call. */
+    decline() {
+      try { pendingCall?.close() } catch { /* noop */ }
+      pendingCall = null
+      onStatus?.('ready')
+    },
+    /** Initiate a call to another device's code. */
     call(remoteId) {
       if (!peer) return onError?.('Call session not ready.')
-      if (!stream) return onError?.('Start your camera before calling.')
       const short = normalizeCode(remoteId)
       if (!short) return onError?.('Enter the other device’s code.')
       if (short === code) return onError?.('That is your own code — enter the OTHER device’s code.')
       onStatus?.('calling')
-      const c = peer.call(CODE_NAMESPACE + short, stream)
+      // Use our real media, or an empty stream when the camera is unavailable
+      // (receive-only — the other side's video still comes through).
+      const c = peer.call(CODE_NAMESPACE + short, stream ?? new MediaStream())
       if (!c) return onError?.('Could not place the call.')
       bindCall(c)
     },
