@@ -109,7 +109,7 @@ function negotiableStream(stream) {
   return s
 }
 
-export function createCallSession({ localStream, onOpen, onStatus, onRemoteStream, onError, onIncoming, fixedCode = null }) {
+export function createCallSession({ localStream, onOpen, onStatus, onRemoteStream, onError, onIncoming, onFixedUnavailable, fixedCode = null }) {
   let peer = null
   let currentCall = null
   let pendingCall = null // incoming call awaiting Accept/Decline
@@ -117,6 +117,7 @@ export function createCallSession({ localStream, onOpen, onStatus, onRemoteStrea
   // A fixed code (e.g. an institution ID) makes this device reachable at a
   // stable address so callers don't need a copy-pasted code.
   const fixed = fixedCode ? normalizeCode(fixedCode) : null
+  let fixedActive = !!fixed // becomes false if we must fall back to a random code
   let code = fixed ?? randomCode()
   let retries = 0
   let destroyed = false
@@ -124,7 +125,15 @@ export function createCallSession({ localStream, onOpen, onStatus, onRemoteStrea
   let openTimer = null // watchdog: broker must acknowledge us within a few seconds
   let opened = false
   let reconnects = 0
+  let switching = false // true while we intentionally tear down a peer to rebuild it
   let callWatch = null // polls the RTCPeerConnection so camera-off calls still connect
+
+  /** Destroy the current peer as part of a rebuild (retry / fallback), without
+   *  letting its 'close' event surface as a spurious 'ended' to the UI. */
+  function destroyForRebuild() {
+    switching = true
+    try { peer?.destroy() } catch { /* noop */ }
+  }
 
   function stopWatch() { if (callWatch) { clearInterval(callWatch); callWatch = null } }
 
@@ -174,6 +183,7 @@ export function createCallSession({ localStream, onOpen, onStatus, onRemoteStrea
       const firstOpen = !opened
       opened = true
       reconnects = 0
+      switching = false
       if (openTimer) { clearTimeout(openTimer); openTimer = null }
       // Only announce 'open' the FIRST time. PeerJS re-emits 'open' after a
       // reconnect to the broker; re-running onOpen would reset the call status
@@ -200,26 +210,35 @@ export function createCallSession({ localStream, onOpen, onStatus, onRemoteStrea
         onStatus?.('disconnected')
       }
     })
-    peer.on('close', () => onStatus?.('ended'))
+    peer.on('close', () => { if (!switching && !destroyed) onStatus?.('ended') })
     peer.on('error', (e) => {
       if (e?.type === 'unavailable-id') {
-        if (fixed) {
-          // The fixed code is held by SOME peer on the broker. In practice this
-          // is almost always our OWN stale registration — a quick reload, or
-          // React StrictMode's double-mount in dev — and the broker frees the
-          // id a second or two after that socket drops. So retry a few times
-          // with a short delay before concluding another device truly holds it.
-          if (retries < 6 && !destroyed) {
+        if (fixedActive) {
+          // The fixed code is held by SOME peer on the broker. Usually this is
+          // our OWN stale registration (a quick reload) and the broker frees
+          // the id within a second or two, so retry a few times first.
+          if (retries < 4 && !destroyed) {
             retries += 1
-            try { peer?.destroy() } catch { /* noop */ }
+            destroyForRebuild()
             onStatus?.('registering')
-            retryTimer = setTimeout(() => { if (!destroyed) buildPeer() }, 1200)
+            retryTimer = setTimeout(() => { if (!destroyed) buildPeer() }, 1500)
             return
           }
-          onError?.('This code is already online on another device. Only one device per code can be reachable.')
+          // Still can't claim it — most often a stale/ghost peer lingering on
+          // the shared PUBLIC broker (it frees only after a ~60s timeout).
+          // Don't dead-end the user: fall back to a random, shareable code so
+          // this device is still reachable; the caller dials it manually.
+          if (!destroyed) {
+            fixedActive = false
+            retries = 0
+            code = randomCode()
+            destroyForRebuild()
+            onFixedUnavailable?.(code)
+            buildPeer()
+          }
           return
         }
-        if (retries < 3) { retries += 1; code = randomCode(); try { peer?.destroy() } catch { /* noop */ } buildPeer(); return }
+        if (retries < 3) { retries += 1; code = randomCode(); destroyForRebuild(); buildPeer(); return }
       }
       onError?.(mapError(e))
     })

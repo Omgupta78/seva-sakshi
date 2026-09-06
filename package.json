@@ -8,7 +8,9 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "share": "powershell -NoProfile -ExecutionPolicy Bypass -File ./share.ps1"
+    "share": "powershell -NoProfile -ExecutionPolicy Bypass -File ./share.ps1",
+    "signal": "npx -y -p peer peerjs --port 9000 --key peerjs --path /seva",
+    "signal:share": "powershell -NoProfile -ExecutionPolicy Bypass -File ./signal.ps1"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

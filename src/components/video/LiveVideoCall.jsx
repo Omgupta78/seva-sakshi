@@ -24,6 +24,7 @@ export default function LiveVideoCall({ title = 'Live Video Call', subtitle, onC
   const [error, setError] = useState(null)
   const [remoteInput, setRemoteInput] = useState('')
   const [incoming, setIncoming] = useState(false)
+  const [fellBack, setFellBack] = useState(false) // fixed code was busy → using a random one
   const [muted, setMutedState] = useState(false)
   const [cameraOff, setCameraOffState] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -49,6 +50,7 @@ export default function LiveVideoCall({ title = 'Live Video Call', subtitle, onC
           if (autoCallCode) { setStatus('calling'); session.call(autoCallCode) }
         },
         onStatus: (s) => { if (!disposed) setStatus(s) },
+        onFixedUnavailable: (fallbackCode) => { if (!disposed) { setFellBack(true); setPeerId(fallbackCode); setStatus('ready') } },
         onIncoming: () => { if (!disposed) setIncoming(true) },
         onRemoteStream: (remote) => { if (!disposed) { setIncoming(false); setRemoteStream(remote) } },
         onError: (msg) => { if (!disposed) { setError(msg); setStatus((s) => (s === 'connected' ? s : 'error')) } },
@@ -94,7 +96,7 @@ export default function LiveVideoCall({ title = 'Live Video Call', subtitle, onC
   const statusText = {
     'starting-media': 'Starting your camera…',
     registering: 'Reserving your code…',
-    ready: fixedCode ? `Online — reachable as ${peerId ?? '…'}. Waiting for a call.` : 'Ready — share your code or enter the other device’s code',
+    ready: (fixedCode && !fellBack) ? `Online — reachable as ${peerId ?? '…'}. Waiting for a call.` : 'Ready — share your code or enter the other device’s code',
     calling: 'Calling…',
     incoming: 'Incoming call…',
     connected: 'Connected',
@@ -155,6 +157,7 @@ export default function LiveVideoCall({ title = 'Live Video Call', subtitle, onC
         </div>
       )}
 
+      {fellBack && <p className="mx-4 mt-2 rounded-lg bg-amber-500/15 px-3 py-2 text-xs text-amber-200">Your institution code <span className="font-semibold">{fixedCode}</span> is busy on the public broker (a previous session may still be held for ~1 min). You are now reachable at the temporary code shown below — read it to the caller and have them use <span className="font-semibold">“Call code”</span>.</p>}
       {mediaError && <p className="mx-4 mt-2 rounded-lg bg-amber-500/15 px-3 py-2 text-xs text-amber-200">{mediaError}</p>}
       {error && <p className="mx-4 mt-2 rounded-lg bg-red-500/15 px-3 py-2 text-xs text-red-200">{error}</p>}
 
