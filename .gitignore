@@ -25,3 +25,8 @@ dist-ssr
 
 # Local Claude Code session config
 .claude/
+
+# Local environment (never commit real secrets)
+.env
+.env.local
+.env.*.local

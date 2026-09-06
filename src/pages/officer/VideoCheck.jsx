@@ -11,6 +11,7 @@ import {
 import ParticipantReveal from '../../components/officer/video/ParticipantReveal.jsx'
 import VideoCallStage from '../../components/officer/video/VideoCallStage.jsx'
 import CallRecordsTable from '../../components/officer/video/CallRecordsTable.jsx'
+import LiveVideoCall from '../../components/video/LiveVideoCall.jsx'
 import { isVideoConfigured, VIDEO_SERVICE } from '../../services/integrationConfig.js'
 
 export default function VideoCheck() {
@@ -20,6 +21,7 @@ export default function VideoCheck() {
   const [selecting, setSelecting] = useState(false)
   const [requesting, setRequesting] = useState(false)
   const [activeCall, setActiveCall] = useState(null)
+  const [liveCall, setLiveCall] = useState(false)
 
   const { data: projectData } = useAsync(() => getVideoCheckProjects(), [])
   const { data: callData, loading: callsLoading, refetch: refetchCalls } = useAsync(() => listCalls(), [])
@@ -90,6 +92,17 @@ export default function VideoCheck() {
         </p>
       </div>
 
+      {/* Real WebRTC 2-device call — genuine peer-to-peer, not simulated. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#138808]/25 bg-green-50/50 p-4 shadow-sm sm:p-5">
+        <div className="min-w-0">
+          <h2 className="flex items-center gap-1.5 text-sm font-bold text-plum-950"><Video className="h-4 w-4 text-[#16794f]" aria-hidden="true" /> Live Video Call — real WebRTC (2 devices)</h2>
+          <p className="mt-0.5 text-xs text-plum-950/60">Genuine peer-to-peer video. Open this on two devices, share the code, and connect. Uses your real camera and microphone.</p>
+        </div>
+        <button type="button" onClick={() => setLiveCall(true)} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#138808] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f6b06]">
+          <Video className="h-4 w-4" aria-hidden="true" /> Start Live Video Call
+        </button>
+      </div>
+
       {/* Step 1 — select project + start */}
       <div className="rounded-2xl border border-plum-950/10 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -146,6 +159,7 @@ export default function VideoCheck() {
 
       {/* Active call overlay */}
       {activeCall && <VideoCallStage call={activeCall} onClose={handleCloseCall} />}
+      {liveCall && <LiveVideoCall title="Department — Live Video Call" subtitle={user?.name} onClose={() => setLiveCall(false)} />}
     </div>
   )
 }

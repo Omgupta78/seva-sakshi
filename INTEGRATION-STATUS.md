@@ -31,7 +31,8 @@ then reload. Everything it enables stays visibly labelled DEMO.
 | CCTV camera registration (CRUD) | **REAL (prototype)** | register/update/delete/status persisted (config only; no RTSP creds client-side). |
 | Face detection / matching | **CONFIGURATION REQUIRED** | Default `not-connected` → attendance uses authorized manual verification. Needs an authorized biometric provider (`VITE_RECOGNITION_MODE=live` + a real `FaceRecognitionService` impl). |
 | CCTV live playback | **CONFIGURATION REQUIRED** | Default shows "Camera gateway not configured". Needs a media gateway (RTSP→HLS/WebRTC) + backend playback endpoint (`VITE_CCTV_GATEWAY=live`). See REAL-CCTV-INTEGRATION.md. |
-| Video call (remote participant) | **CONFIGURATION REQUIRED** | Default shows "Video service not configured". Local camera/mic preview is real; a real call needs signaling + STUN/TURN (`VITE_VIDEO_SERVICE=live`). |
+| **Live Video Call (2 devices, WebRTC)** | **REAL** | Genuine peer-to-peer video via PeerJS (`webrtcProvider.js` + `LiveVideoCall.jsx`). Real local + remote device cameras; open on two devices, share the code, connect. Works out-of-the-box on the PeerJS public broker; self-host + TURN via env for production. Launch from Department → Video Check and Institute → Video Check. |
+| Random Video Check (enterprise auto-select) | **CONFIGURATION REQUIRED** | Separate from the P2P Live Call. Default "Video service not configured"; needs an enterprise signaling service (`VITE_VIDEO_SERVICE=live`). |
 | Camera health / heartbeat | **DEMO/SEEDED** | Seed inventory + statuses are labelled seed data; real health needs the gateway. |
 | AI / anomaly analytics | **DEMO (advisory)** | Transparent means/deltas, labelled "requires human verification"; never a fraud verdict. |
 | Notifications | **REAL (in-app, seeded)** | Read/unread over the local data layer. |
