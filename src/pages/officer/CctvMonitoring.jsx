@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LayoutGrid, List, Map, Bell, Play, ShieldCheck, TrendingUp } from 'lucide-react'
+import { LayoutGrid, List, Map, Bell, Play, ShieldCheck, TrendingUp, Plus, Pencil, Trash2, Wifi } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync.js'
-import { listCameras, getCctvHealth, getCctvFilterOptions, listCctvAlerts, getCctvAnalytics } from '../../services/cctvService.js'
+import { useAuth } from '../../context/AuthContext.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
+import { PERMISSIONS } from '../../data/rbac.js'
+import { listCameras, getCctvHealth, getCctvFilterOptions, listCctvAlerts, getCctvAnalytics, testCamera, deleteCamera } from '../../services/cctvService.js'
 import StatCard from '../../components/officer/StatCard.jsx'
 import DataTable from '../../components/officer/table/DataTable.jsx'
 import CctvFilters from '../../components/officer/cctv/CctvFilters.jsx'
@@ -10,6 +13,9 @@ import CameraCard from '../../components/officer/cctv/CameraCard.jsx'
 import CameraStatusBadge from '../../components/officer/cctv/CameraStatusBadge.jsx'
 import CctvMap from '../../components/officer/cctv/CctvMap.jsx'
 import CctvAlertsPanel from '../../components/officer/cctv/CctvAlertsPanel.jsx'
+import CameraFormDialog from '../../components/officer/cctv/CameraFormDialog.jsx'
+import ActionMenu from '../../components/officer/ActionMenu.jsx'
+import ConfirmActionModal from '../../components/officer/ConfirmActionModal.jsx'
 import { formatDateTime, timeAgo } from '../../components/officer/cctv/time.js'
 
 const initialFilters = { search: '', state: 'all', district: 'all', projectId: 'all', organizationId: 'all', status: 'all' }
@@ -24,17 +30,38 @@ const TABS = [
 
 export default function CctvMonitoring() {
   const navigate = useNavigate()
+  const { hasPermission } = useAuth()
+  const toast = useToast()
+  const canManage = hasPermission(PERMISSIONS.MANAGE_CCTV)
   const [filters, setFilters] = useState(initialFilters)
   const [tab, setTab] = useState('grid')
+  const [formCamera, setFormCamera] = useState(null) // {} for add, camera for edit
+  const [deleting, setDeleting] = useState(null)
 
-  const { data: camData, loading } = useAsync(() => listCameras(filters), [JSON.stringify(filters)])
-  const { data: health } = useAsync(() => getCctvHealth(), [])
+  const { data: camData, loading, refetch } = useAsync(() => listCameras(filters), [JSON.stringify(filters)])
+  const { data: health, refetch: refetchHealth } = useAsync(() => getCctvHealth(), [])
   const { data: options } = useAsync(() => getCctvFilterOptions(), [])
   const { data: alertData, loading: alertsLoading } = useAsync(() => listCctvAlerts(), [])
   const { data: analytics } = useAsync(() => getCctvAnalytics(), [])
 
   const cameras = camData?.items ?? []
   const alerts = alertData?.items ?? []
+
+  function afterChange() { refetch(); refetchHealth() }
+
+  async function handleTest(cam) {
+    try {
+      const r = await testCamera(cam.id)
+      toast[r.ok ? 'success' : 'error'](`${cam.label}: ${r.message}${r.latencyMs ? ` (${r.latencyMs} ms)` : ''}`)
+    } catch (e) { toast.error(e.message ?? 'Connection test failed.') }
+  }
+
+  async function handleDelete(reason) {
+    await deleteCamera(deleting.id, reason)
+    toast.success(`Camera ${deleting.id} removed.`)
+    setDeleting(null)
+    afterChange()
+  }
 
   const listColumns = [
     { key: 'id', label: 'Camera ID', render: (r) => <span className="font-mono text-xs font-semibold text-plum-950">{r.id}</span> },
@@ -48,22 +75,38 @@ export default function CctvMonitoring() {
       key: 'actions',
       label: '',
       render: (r) => (
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); navigate(`/officer/cctv/${r.id}`) }}
-          className="flex items-center gap-1 rounded-lg bg-plum-800 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-plum-700"
-        >
-          <Play className="h-3.5 w-3.5" aria-hidden="true" /> View Live
-        </button>
+        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => navigate(`/officer/cctv/${r.id}`)}
+            className="flex items-center gap-1 rounded-lg bg-plum-800 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-plum-700"
+          >
+            <Play className="h-3.5 w-3.5" aria-hidden="true" /> View Live
+          </button>
+          {canManage && (
+            <ActionMenu items={[
+              { label: 'Test connection', icon: Wifi, onClick: () => handleTest(r) },
+              { label: 'Edit camera', icon: Pencil, onClick: () => setFormCamera(r) },
+              { label: 'Delete camera', icon: Trash2, tone: 'danger', onClick: () => setDeleting(r) },
+            ]} />
+          )}
+        </div>
       ),
     },
   ]
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-4">
-      <div>
-        <h1 className="text-lg font-extrabold text-plum-950 sm:text-xl">Live CCTV Monitoring</h1>
-        <p className="text-sm text-plum-950/60">Camera health and live view across monitored projects and institutes.</p>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h1 className="text-lg font-extrabold text-plum-950 sm:text-xl">Live CCTV Monitoring</h1>
+          <p className="text-sm text-plum-950/60">Camera health and live view across monitored projects and institutes.</p>
+        </div>
+        {canManage && (
+          <button type="button" onClick={() => setFormCamera({})} className="flex items-center gap-1.5 rounded-lg bg-plum-800 px-3.5 py-2 text-sm font-semibold text-white hover:bg-plum-700">
+            <Plus className="h-4 w-4" aria-hidden="true" /> Add Camera
+          </button>
+        )}
       </div>
 
       {/* Honest scope banner — no real government CCTV is connected. */}
@@ -169,6 +212,24 @@ export default function CctvMonitoring() {
             <p className="mt-3 text-[11px] text-plum-950/50">Device-health uptime only (online ÷ total). No video-content analysis.</p>
           </div>
         </div>
+      )}
+
+      {formCamera && (
+        <CameraFormDialog
+          camera={Object.keys(formCamera).length ? formCamera : null}
+          projects={(options?.projects ?? [])}
+          onClose={() => setFormCamera(null)}
+          onSaved={() => { setFormCamera(null); afterChange() }}
+        />
+      )}
+
+      {deleting && (
+        <ConfirmActionModal
+          title="Delete camera?" tone="danger" reasonRequired reasonPlaceholder="e.g. hardware permanently removed"
+          warning="This permanently removes the camera from the inventory."
+          description={`Delete ${deleting.id} (${deleting.label})? Prefer Disable for a temporary outage.`}
+          confirmLabel="Delete camera" loadingLabel="Deleting…"
+          onConfirm={handleDelete} onClose={() => setDeleting(null)} />
       )}
     </div>
   )

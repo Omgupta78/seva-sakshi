@@ -21,8 +21,13 @@ import { PROJECTS, ORGANIZATIONS, LOCATIONS } from '../data/projectsSeedData.js'
 import { requirePermission, getActor } from './authz.js'
 import { PERMISSIONS } from '../data/rbac.js'
 import { record as recordAudit } from './auditService.js'
+import { loadStore, saveStore, maxIdNum } from './persist.js'
 
-const store = [...CAMERAS]
+const CAMERAS_KEY = 'cctv-cameras'
+// Camera CONFIG only (no RTSP URL / credentials — those stay server-side).
+// Snapshotted to localStorage so registered/edited cameras survive a reload.
+let store = loadStore(CAMERAS_KEY, () => [...CAMERAS])
+function persistCameras() { saveStore(CAMERAS_KEY, store) }
 
 /** Join a camera to its project / organization / location for display. */
 function resolveCamera(cam) {
@@ -96,7 +101,105 @@ function mutateCamera(id, patch) {
   const cam = store.find((c) => c.id === id)
   if (!cam) throw new NotFoundError(`Camera ${id} not found`)
   Object.assign(cam, patch)
+  persistCameras()
   return resolveCamera(cam)
+}
+
+// --- camera registration / management (spec §12/§13) ----------------------
+
+/**
+ * Register a new camera (CONFIG only — never an RTSP URL or credential, which
+ * belong to the server-side gateway). `projectId` links the camera so the
+ * service can resolve its institute/location/district for display.
+ */
+export async function registerCamera(input) {
+  requirePermission(PERMISSIONS.MANAGE_CCTV)
+  await delay(200)
+  const fieldErrors = {}
+  if (!input.label?.trim()) fieldErrors.label = 'Camera name is required.'
+  if (!input.projectId) fieldErrors.projectId = 'Select the institution/project this camera belongs to.'
+  if (input.sourceProtocol && !['rtsp', 'webrtc'].includes(input.sourceProtocol)) fieldErrors.sourceProtocol = 'Unsupported source protocol.'
+  if (Object.keys(fieldErrors).length) { const e = new Error('Validation failed'); e.fieldErrors = fieldErrors; throw e }
+
+  const id = `CAM-${String(maxIdNum(store) + 1).padStart(4, '0')}`
+  const now = new Date().toISOString()
+  const cam = {
+    id,
+    projectId: input.projectId,
+    placement: input.placement?.trim() || input.label.trim(),
+    label: input.label.trim(),
+    status: input.status ?? 'online',
+    sourceProtocol: input.sourceProtocol ?? 'rtsp', // ingestion; browser gets HLS/WebRTC via the gateway
+    resolution: input.resolution ?? '1080p',
+    fps: input.fps ?? 25,
+    lastHeartbeat: now,
+    lastUpdated: now,
+    mapOffset: [0, 0],
+    installedOn: now.slice(0, 10),
+  }
+  store = [cam, ...store]
+  persistCameras()
+  recordAudit('CAMERA_REGISTERED', { entityId: id, projectId: cam.projectId, metadata: { label: cam.label, protocol: cam.sourceProtocol } })
+  return resolveCamera(cam)
+}
+
+/** Edit a camera's non-sensitive config. */
+export async function updateCamera(id, patch) {
+  requirePermission(PERMISSIONS.MANAGE_CCTV)
+  await delay(180)
+  const allowed = {}
+  for (const k of ['label', 'placement', 'resolution', 'fps', 'sourceProtocol', 'status', 'projectId']) {
+    if (patch[k] != null) allowed[k] = typeof patch[k] === 'string' ? patch[k].trim() : patch[k]
+  }
+  if (patch.label != null && !String(patch.label).trim()) { const e = new Error('Validation failed'); e.fieldErrors = { label: 'Camera name is required.' }; throw e }
+  allowed.lastUpdated = new Date().toISOString()
+  const cam = mutateCamera(id, allowed)
+  recordAudit('CAMERA_UPDATED', { entityId: id, projectId: cam.projectId, metadata: { label: cam.label } })
+  return cam
+}
+
+/** Permanently remove a camera from the inventory (authorised only). */
+export async function deleteCamera(id, reason) {
+  requirePermission(PERMISSIONS.MANAGE_CCTV)
+  await delay(180)
+  const cam = store.find((c) => c.id === id)
+  if (!cam) throw new NotFoundError(`Camera ${id} not found`)
+  store = store.filter((c) => c.id !== id)
+  persistCameras()
+  recordAudit('CAMERA_DELETED', { entityId: id, projectId: cam.projectId, metadata: { label: cam.label, reason: reason || undefined } })
+  return { id, deleted: true }
+}
+
+/**
+ * Test a camera's connection. In this prototype there is no real gateway, so
+ * this is a SIMULATED reachability check derived from the camera's status —
+ * clearly returned as mode:'demo'. A live deployment probes the media gateway.
+ */
+export async function testCamera(id) {
+  requirePermission(PERMISSIONS.VIEW_CCTV)
+  await delay(600)
+  const cam = store.find((c) => c.id === id)
+  if (!cam) throw new NotFoundError(`Camera ${id} not found`)
+  const reachable = cam.status === 'online' || cam.status === 'warning'
+  return {
+    cameraId: id,
+    mode: 'demo',
+    ok: reachable,
+    latencyMs: reachable ? 40 + (maxIdNum([cam]) % 80) : null,
+    checkedAt: new Date().toISOString(),
+    message: reachable
+      ? 'Reachable (demo check — no real gateway connected).'
+      : cam.status === 'offline' ? 'Offline — no heartbeat from the camera/gateway.' : 'Camera is disabled.',
+  }
+}
+
+/** Per-camera status snapshot. */
+export async function getCameraStatus(id) {
+  requirePermission(PERMISSIONS.VIEW_CCTV)
+  await delay(120)
+  const cam = store.find((c) => c.id === id)
+  if (!cam) throw new NotFoundError(`Camera ${id} not found`)
+  return { cameraId: id, status: cam.status, lastSeen: cam.lastHeartbeat, enabled: cam.status !== 'disabled' && cam.status !== 'decommissioned' }
 }
 
 /** Temporarily disable a camera (reversible). Historical events are kept. */
