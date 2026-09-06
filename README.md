@@ -170,7 +170,7 @@ no domain purchase needed).
 **One-time setup:**
 
 1. Create a free account at <https://dashboard.ngrok.com>.
-2. Install ngrok: `winget install ngrok.ngrok`
+2. Install ngrok: `winget install Ngrok.Ngrok`
 3. Add your authtoken (from the dashboard): `ngrok config add-authtoken <YOUR_TOKEN>`
 4. In the dashboard, open **Domains** and claim your free static domain, e.g.
    `your-name.ngrok-free.dev`.

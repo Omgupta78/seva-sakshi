@@ -9,7 +9,7 @@
 #
 #  One-time setup (see README → "A permanent (fixed) phone URL"):
 #    1. Create a free account at https://dashboard.ngrok.com
-#    2. Install ngrok:            winget install ngrok.ngrok
+#    2. Install ngrok:            winget install Ngrok.Ngrok
 #    3. Add your authtoken:       ngrok config add-authtoken <YOUR_TOKEN>
 #    4. Claim your free static domain in the ngrok dashboard (Domains),
 #       e.g. your-name.ngrok-free.app
@@ -39,7 +39,7 @@ if (-not $domain) {
 $ng = (Get-Command ngrok -ErrorAction SilentlyContinue).Source
 if (-not $ng) {
   Write-Host "ngrok is not installed." -ForegroundColor Red
-  Write-Host "Install it once with:  winget install ngrok.ngrok" -ForegroundColor Yellow
+  Write-Host "Install it once with:  winget install Ngrok.Ngrok" -ForegroundColor Yellow
   Write-Host "Then:  ngrok config add-authtoken <YOUR_TOKEN>" -ForegroundColor Yellow
   exit 1
 }
