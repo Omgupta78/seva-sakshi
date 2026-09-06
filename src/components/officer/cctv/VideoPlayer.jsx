@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
-import { Loader2, VideoOff, AlertTriangle, Radio, FlaskConical } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Loader2, VideoOff, AlertTriangle, Radio, FlaskConical, Smartphone } from 'lucide-react'
 import { useAsync } from '../../../hooks/useAsync.js'
 import { getStream, stopStream } from '../../../services/streamProvider.js'
+import { createCameraViewer } from '../../../services/webrtcProvider.js'
 
 /**
  * FRONTEND VIDEO PLAYER (demo).
@@ -21,11 +22,29 @@ import { getStream, stopStream } from '../../../services/streamProvider.js'
 export default function VideoPlayer({ camera }) {
   const { data: session, loading } = useAsync(() => getStream(camera.id), [camera.id])
   const [clock, setClock] = useState(() => new Date())
+  const phoneRef = useRef(null)
+  const [phoneStream, setPhoneStream] = useState(null) // live phone feed, if any device is broadcasting this camera id
 
   // Release the (simulated) gateway session token on unmount / camera change.
   useEffect(() => {
     return () => stopStream(session?.token)
   }, [session])
+
+  // Try to attach a LIVE PHONE feed broadcasting under this camera's id. If a
+  // phone is broadcasting (via /camera), its real video replaces the demo
+  // placeholder; otherwise this quietly fails and the honest placeholder shows.
+  useEffect(() => {
+    setPhoneStream(null)
+    const viewer = createCameraViewer({
+      code: camera.id,
+      onStream: (s) => setPhoneStream(s),
+      onStatus: () => {},
+      onError: () => {}, // no phone broadcasting → fall back to the normal player
+    })
+    return () => { try { viewer.stop() } catch { /* noop */ } setPhoneStream(null) }
+  }, [camera.id])
+
+  useEffect(() => { if (phoneRef.current && phoneStream) phoneRef.current.srcObject = phoneStream }, [phoneStream])
 
   // Live on-screen-display clock, like a real camera timestamp overlay.
   useEffect(() => {
@@ -36,6 +55,32 @@ export default function VideoPlayer({ camera }) {
   const offline = camera.status === 'offline'
   const unstable = camera.status === 'warning'
   const stamp = clock.toLocaleString('en-IN', { hour12: false })
+
+  // A real phone is broadcasting this camera id — show the genuine live feed.
+  if (phoneStream) {
+    return (
+      <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-[#0b0a14]">
+        <video ref={phoneRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+        <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-2.5 sm:p-3">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-1.5 rounded bg-black/45 px-2 py-1 font-mono text-[11px] text-white/90 backdrop-blur-sm">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" aria-hidden="true" />
+              {camera.id} · {camera.label}
+            </div>
+            <div className="rounded bg-black/45 px-2 py-1 font-mono text-[11px] text-white/90 backdrop-blur-sm">{stamp}</div>
+          </div>
+          <div className="flex items-end justify-between">
+            <span className="inline-flex items-center gap-1 rounded bg-black/55 px-2 py-1 text-[10px] font-semibold tracking-wide text-amber-200/90 uppercase backdrop-blur-sm">
+              <Smartphone className="h-3 w-3" aria-hidden="true" /> Live phone feed · not a fixed CCTV camera
+            </span>
+          </div>
+        </div>
+        <span className="pointer-events-none absolute top-2.5 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-red-600/90 px-2.5 py-0.5 text-[11px] font-bold text-white">
+          <Radio className="h-3 w-3" aria-hidden="true" /> LIVE
+        </span>
+      </div>
+    )
+  }
 
   return (
     <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-[#0b0a14]">

@@ -8,6 +8,7 @@ import UsersManagement from './pages/officer/UsersManagement.jsx'
 import AuditLogs from './pages/officer/AuditLogs.jsx'
 import Landing from './pages/Landing.jsx'
 import Login from './pages/Login.jsx'
+import CameraBroadcast from './pages/CameraBroadcast.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import OfficerLayout from './pages/officer/OfficerLayout.jsx'
 import OfficerDashboard from './pages/officer/OfficerDashboard.jsx'
@@ -87,6 +88,12 @@ export default function App() {
           <Route path="/institution/login" element={<InstitutionLogin />} />
           <Route path="/institute/login" element={<InstitutionLogin />} />
           <Route path="/inspector/login" element={<InspectorLogin />} />
+
+          {/* Phone-as-camera broadcaster — open on a phone to stream its camera
+              as a live feed the dashboard can watch. Public (no login) so any
+              on-site phone can act as a camera. */}
+          <Route path="/camera" element={<CameraBroadcast />} />
+          <Route path="/broadcast" element={<CameraBroadcast />} />
 
           {/* Department CCTV route aliases (spec §2/§5/§6) → canonical /officer/cctv,
               which enforces auth + department portal + VIEW_CCTV. */}

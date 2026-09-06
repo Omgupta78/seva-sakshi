@@ -309,3 +309,106 @@ export function createCallSession({ localStream, onOpen, onStatus, onRemoteStrea
     },
   }
 }
+
+/* ---------------------------------------------------------------------
+ * PHONE-AS-CAMERA (one-way live feed) — a phone broadcasts its camera and
+ * the monitoring dashboard views it. This is a REAL WebRTC stream (same
+ * PeerJS broker + STUN/TURN as the call), one-directional: the broadcaster
+ * sends video, the viewer only receives. It is clearly labelled a live PHONE
+ * feed in the UI — it never impersonates a configured CCTV gateway.
+ * Camera peer ids are namespaced separately so they can't collide with call
+ * codes: sevasakshi-CAM-<code>.
+ * ------------------------------------------------------------------- */
+const CAM_PREFIX = 'CAM-'
+function cameraPeerId(code) { return CODE_NAMESPACE + CAM_PREFIX + normalizeCode(code) }
+
+/**
+ * Start broadcasting `stream` as the camera identified by `code`. Auto-answers
+ * every viewer with the camera video (receive-only for the viewer). Returns a
+ * handle with the live viewer count and a stop().
+ */
+export function createCameraBroadcast({ code, stream, onStatus, onError }) {
+  let peer = null
+  let destroyed = false
+  let reconnects = 0
+  const calls = new Set()
+
+  function build() {
+    peer = new Peer(cameraPeerId(code), peerOptions())
+    peer.on('open', () => { reconnects = 0; onStatus?.('online') })
+    peer.on('call', (call) => {
+      // A viewer wants the feed — answer immediately with our camera stream.
+      try { call.answer(stream) } catch (e) { onError?.(mapError(e)); return }
+      calls.add(call)
+      onStatus?.('viewer', calls.size)
+      const cleanup = () => { calls.delete(call); onStatus?.('viewer', calls.size) }
+      call.on('close', cleanup)
+      call.on('error', cleanup)
+    })
+    peer.on('disconnected', () => {
+      if (destroyed) return
+      if (reconnects < 8) { reconnects += 1; try { peer?.reconnect() } catch { /* noop */ } }
+      else onStatus?.('disconnected')
+    })
+    peer.on('error', (e) => {
+      if (e?.type === 'unavailable-id') { onError?.('This camera code is already broadcasting from another device. Pick a different code.'); return }
+      onError?.(mapError(e))
+    })
+  }
+  build()
+
+  return {
+    get cameraId() { return CAM_PREFIX + normalizeCode(code) },
+    stop() {
+      destroyed = true
+      calls.forEach((c) => { try { c.close() } catch { /* noop */ } })
+      calls.clear()
+      try { peer?.destroy() } catch { /* noop */ }
+      peer = null
+    },
+  }
+}
+
+/**
+ * View the live phone feed broadcasting under `code`. Delivers the remote
+ * MediaStream via onStream. onStatus: 'connecting' | 'live' | 'ended'. onError
+ * fires when no phone is broadcasting that code (or on a real failure).
+ */
+export function createCameraViewer({ code, onStream, onStatus, onError }) {
+  let peer = null
+  let destroyed = false
+  let current = null
+  let watch = null
+  let timer = null
+  const stopWatch = () => { if (watch) { clearInterval(watch); watch = null } }
+  const clearTimer = () => { if (timer) { clearTimeout(timer); timer = null } }
+
+  peer = new Peer(peerOptions()) // random viewer id from the broker
+  peer.on('open', () => {
+    onStatus?.('connecting')
+    // Receive-only: call with a minimal placeholder stream; we want the
+    // broadcaster's video back, we send nothing meaningful.
+    const call = peer.call(cameraPeerId(code), negotiableStream(null))
+    if (!call) { onError?.('Could not connect to the camera.'); return }
+    current = call
+    call.on('stream', (remote) => { clearTimer(); stopWatch(); onStream?.(remote); onStatus?.('live') })
+    call.on('close', () => { clearTimer(); stopWatch(); onStatus?.('ended') })
+    call.on('error', (e) => { clearTimer(); stopWatch(); onError?.(mapError(e)) })
+    // If the feed never arrives, tell the user rather than spin forever.
+    timer = setTimeout(() => { if (!destroyed) onError?.('No live phone feed for this camera. On the phone, open the camera page and Start broadcasting under this code.') }, 15000)
+  })
+  peer.on('error', (e) => {
+    if (e?.type === 'peer-unavailable') { onError?.('No phone is broadcasting this camera right now.'); return }
+    onError?.(mapError(e))
+  })
+
+  return {
+    stop() {
+      destroyed = true
+      clearTimer(); stopWatch()
+      try { current?.close() } catch { /* noop */ }
+      try { peer?.destroy() } catch { /* noop */ }
+      peer = null
+    },
+  }
+}

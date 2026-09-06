@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LayoutGrid, List, Map, Bell, Play, ShieldCheck, TrendingUp, Plus, Pencil, Trash2, Wifi } from 'lucide-react'
+import { LayoutGrid, List, Map, Bell, Play, ShieldCheck, TrendingUp, Plus, Pencil, Trash2, Wifi, Smartphone } from 'lucide-react'
 import { useAsync } from '../../hooks/useAsync.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -161,9 +161,12 @@ export default function CctvMonitoring() {
         ) : cameras.length === 0 ? (
           <EmptyCameras />
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {cameras.map((cam) => <CameraCard key={cam.id} camera={cam} />)}
-          </div>
+          <>
+            <PhoneCameraHint />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {cameras.map((cam) => <CameraCard key={cam.id} camera={cam} />)}
+            </div>
+          </>
         )
       )}
 
@@ -241,6 +244,20 @@ function EmptyCameras() {
       <LayoutGrid className="mb-2 h-8 w-8 text-plum-950/25" aria-hidden="true" />
       <p className="text-sm font-semibold text-plum-950">No cameras match these filters.</p>
       <p className="mt-1 text-xs text-plum-950/55">Try clearing a filter to widen the search.</p>
+    </div>
+  )
+}
+
+/** How to stream a phone as a live camera into the grid (no CCTV hardware). */
+function PhoneCameraHint() {
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-[#138808]/25 bg-green-50/60 p-3 text-xs text-plum-950/75">
+      <Smartphone className="h-4 w-4 shrink-0 text-[#16794f]" aria-hidden="true" />
+      <span>
+        <span className="font-semibold text-plum-950">Use a phone as a live camera:</span> open{' '}
+        <span className="font-mono font-semibold text-plum-950">{origin}/camera</span> on the phone, set the code to a camera below (e.g. <span className="font-mono">CAM-0003</span>) and tap <span className="font-semibold">Start broadcasting</span> — then press <span className="font-semibold">View Live</span> on that camera here. Real WebRTC; the live phone feed is labelled as such.
+      </span>
     </div>
   )
 }
