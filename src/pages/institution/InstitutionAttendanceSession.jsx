@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { PERMISSIONS } from '../../data/rbac.js'
 import { RECOGNITION_LABEL, RECOGNITION_STATUS } from '../../data/attendanceModels.js'
+import { isRecognitionAvailable, LABELS as INTEGRATION_LABELS } from '../../services/integrationConfig.js'
 import {
   getAttendanceSession, startAttendanceSession, runRecognition, correctResult, submitAttendanceSession, SESSION_TYPES,
 } from '../../services/attendanceSessionsService.js'
@@ -46,6 +47,7 @@ export default function InstitutionAttendanceSession() {
   const typeLabel = SESSION_TYPES.find((t) => t.id === session.sessionType)?.label ?? session.sessionType
   const captured = session.status === 'review' || session.status === 'submitted'
   const submitted = session.status === 'submitted'
+  const recogAvailable = isRecognitionAvailable()
 
   async function capture() {
     setBusy('recognize')
@@ -86,27 +88,41 @@ export default function InstitutionAttendanceSession() {
       {/* Step 1: capture */}
       {!captured && (
         <div className="space-y-3">
+          {!recogAvailable && (
+            <div className="flex items-start gap-2 rounded-xl border border-[#e2a610]/35 bg-amber-50 p-2.5 text-xs text-[#a15c00]">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span><strong>{INTEGRATION_LABELS.recognitionNotConnected}.</strong> The camera capture is real, but no automated face match is performed. After capture, verify each student manually — authorized teacher verification.</span>
+            </div>
+          )}
           <CameraCapture onStatusChange={(s) => setReady(s === 'live')} onUseSimulation={() => setReady(true)} />
           <button type="button" onClick={capture} disabled={!ready || busy} className="flex w-full items-center justify-center gap-2 rounded-lg bg-plum-800 py-3 text-sm font-semibold text-white hover:bg-plum-700 disabled:opacity-50 sm:w-auto sm:px-6">
-            {busy === 'recognize' ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Recognising faces…</> : <><ScanFace className="h-4 w-4" aria-hidden="true" /> Capture &amp; Recognise</>}
+            {busy === 'recognize'
+              ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> {recogAvailable ? 'Recognising faces…' : 'Capturing…'}</>
+              : <><ScanFace className="h-4 w-4" aria-hidden="true" /> {recogAvailable ? 'Capture & Recognise' : 'Capture & Mark Manually'}</>}
           </button>
-          <p className="flex items-start gap-1.5 text-[11px] text-plum-950/55"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-plum-800" aria-hidden="true" /> Face recognition assists this session. Confidence is shown per student and every result can be reviewed — the teacher makes the final decision.</p>
+          <p className="flex items-start gap-1.5 text-[11px] text-plum-950/55"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-plum-800" aria-hidden="true" /> {recogAvailable ? 'Face recognition assists this session. Confidence is shown per student and every result can be reviewed — the teacher makes the final decision.' : 'No student is marked automatically. The teacher confirms each student’s presence.'}</p>
         </div>
       )}
 
       {/* Step 2: review */}
       {captured && (
         <>
-          {/* Demo Recognition Mode — never present simulated recognition as real AI. */}
+          {/* Honest integration banner — provider state, never faking a match. */}
           <div className="flex items-start gap-2 rounded-xl border border-[#e2a610]/35 bg-amber-50 p-2.5 text-xs text-[#a15c00]">
             <FlaskConical className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            <span><strong>{session.recognitionModeLabel ?? 'Demo Recognition Mode'}.</strong> Recognition results below are simulated by a demo provider — not a real AI engine. Every result is reviewed by the teacher, who makes the final decision.</span>
+            {recogAvailable ? (
+              <span><strong>{session.recognitionModeLabel ?? 'Demo Recognition (simulated)'}.</strong> Recognition results below are simulated by a demo provider — not a real AI engine. Every result is reviewed by the teacher, who makes the final decision.</span>
+            ) : (
+              <span><strong>{INTEGRATION_LABELS.recognitionNotConnected}.</strong> No automated identity match is performed. Each student is Pending Verification until the teacher marks them Present or Absent (authorized manual verification).</span>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <Count label="Present" value={session.present} tone="green" icon={UserCheck} />
             <Count label="Absent" value={session.absent} tone="red" icon={UserX} />
-            <Count label="Needs Review" value={session.reviewCount ?? session.unknown} tone="amber" icon={HelpCircle} />
+            {recogAvailable
+              ? <Count label="Needs Review" value={session.reviewCount ?? session.unknown} tone="amber" icon={HelpCircle} />
+              : <Count label="Pending Verification" value={session.pending ?? 0} tone="amber" icon={HelpCircle} />}
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-plum-950/10 bg-white shadow-sm">
@@ -118,13 +134,15 @@ export default function InstitutionAttendanceSession() {
               </thead>
               <tbody>
                 {session.students.map((st) => (
-                  <tr key={st.studentId} className={`border-b border-plum-950/5 last:border-0 ${st.result === 'unknown' ? 'bg-amber-50/40' : ''}`}>
+                  <tr key={st.studentId} className={`border-b border-plum-950/5 last:border-0 ${st.result === 'unknown' || st.result == null ? 'bg-amber-50/40' : ''}`}>
                     <td className="px-3 py-2.5 font-semibold text-plum-950">{st.name}<span className="ml-1 font-mono text-[10px] text-plum-950/40">{st.studentId}</span></td>
-                    <td className="px-3 py-2.5"><span className={`text-xs font-medium ${RECOG_STYLE[st.recognitionStatus] ?? 'text-plum-950/60'}`}>{RECOGNITION_LABEL[st.recognitionStatus] ?? (st.recognitionStatus === RECOGNITION_STATUS.NOT_AVAILABLE ? 'Not seen' : '—')}</span></td>
+                    <td className="px-3 py-2.5"><span className={`text-xs font-medium ${RECOG_STYLE[st.recognitionStatus] ?? 'text-plum-950/60'}`}>{recogAvailable ? (RECOGNITION_LABEL[st.recognitionStatus] ?? '—') : 'Provider not connected'}</span></td>
                     <td className="px-3 py-2.5 font-mono text-xs">{st.confidence != null ? `${st.confidence}%` : '—'}</td>
                     <td className="px-3 py-2.5">
-                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold capitalize ${RESULT_STYLE[st.result] ?? ''}`}>{st.result}</span>
-                      {st.corrected && <span className="ml-1 text-[10px] text-plum-950/45">· corrected</span>}
+                      {st.result == null
+                        ? <span className="inline-flex rounded-full border border-[#e2a610]/35 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-[#a15c00]">Pending</span>
+                        : <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold capitalize ${RESULT_STYLE[st.result] ?? ''}`}>{st.result}</span>}
+                      {st.corrected && st.result != null && <span className="ml-1 text-[10px] text-plum-950/45">· {recogAvailable ? 'corrected' : 'verified'}</span>}
                     </td>
                     {!submitted && (
                       <td className="px-3 py-2.5">
@@ -144,7 +162,7 @@ export default function InstitutionAttendanceSession() {
 
           {!submitted && (
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="flex items-center gap-1.5 text-[11px] text-plum-950/55"><HelpCircle className="h-3.5 w-3.5 text-[#a15c00]" aria-hidden="true" /> Resolve unknown cases before submitting. Changing an AI result requires a reason.</p>
+              <p className="flex items-center gap-1.5 text-[11px] text-plum-950/55"><HelpCircle className="h-3.5 w-3.5 text-[#a15c00]" aria-hidden="true" /> {recogAvailable ? 'Resolve unknown cases before submitting. Changing an AI result requires a reason.' : 'Mark every student Present or Absent before submitting.'}</p>
               <button type="button" onClick={() => setSubmitOpen(true)} className="flex items-center gap-1.5 rounded-lg bg-[#138808] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0f6b06]"><Send className="h-4 w-4" aria-hidden="true" /> Submit Attendance</button>
             </div>
           )}
@@ -157,8 +175,11 @@ export default function InstitutionAttendanceSession() {
       {correcting && (
         <ConfirmActionModal
           title={`Mark ${correcting.student.name} ${correcting.to}?`}
-          description={`Change the recognition result for ${correcting.student.name} to "${correcting.to}". The original AI result is preserved in the audit trail.`}
-          reasonRequired reasonPlaceholder="e.g. Student not physically present during session"
+          description={correcting.student.result == null
+            ? `Record ${correcting.student.name} as ${correcting.to} (authorized teacher verification). This is recorded in the audit trail.`
+            : `Change ${correcting.student.name}'s status to "${correcting.to}". The previous result is preserved in the audit trail.`}
+          reasonRequired={correcting.student.result != null}
+          reasonPlaceholder="e.g. Student not physically present during session"
           confirmLabel="Save" loadingLabel="Saving…" onConfirm={runCorrection} onClose={() => setCorrecting(null)} />
       )}
 
@@ -183,11 +204,12 @@ function Count({ label, value, tone, icon: Icon }) {
 function SubmitConfirm({ session, submitting, onSubmit, onClose }) {
   const [override, setOverride] = useState(false)
   const unresolved = session.unknown
+  const pending = session.pending ?? 0
   return (
     <ConfirmActionModal
       title={`Submit attendance for ${session.class}?`}
-      description={`${session.total} students · ${session.present} Present · ${session.absent} Absent${unresolved ? ` · ${unresolved} Unresolved` : ''}. Once submitted, the result is visible to the Department and feeds AI analytics.`}
-      warning={unresolved ? `${unresolved} unresolved case(s) remain. Submitting requires an authorised override.` : undefined}
+      description={`${session.total} students · ${session.present} Present · ${session.absent} Absent${pending ? ` · ${pending} Pending` : ''}${unresolved ? ` · ${unresolved} Unresolved` : ''}. Once submitted, the result is visible to the Department for monitoring.`}
+      warning={pending ? `${pending} student(s) are still Pending Verification — mark each Present or Absent before you can submit.` : unresolved ? `${unresolved} unresolved case(s) remain. Submitting requires an authorised override.` : undefined}
       confirmLabel="Submit Attendance" loadingLabel="Submitting…"
       onConfirm={() => onSubmit(override)}
       onClose={submitting ? () => {} : onClose}

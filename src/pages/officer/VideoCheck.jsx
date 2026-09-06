@@ -11,6 +11,7 @@ import {
 import ParticipantReveal from '../../components/officer/video/ParticipantReveal.jsx'
 import VideoCallStage from '../../components/officer/video/VideoCallStage.jsx'
 import CallRecordsTable from '../../components/officer/video/CallRecordsTable.jsx'
+import { isVideoConfigured, VIDEO_SERVICE } from '../../services/integrationConfig.js'
 
 export default function VideoCheck() {
   const { user } = useAuth()
@@ -78,12 +79,14 @@ export default function VideoCheck() {
         <p className="text-sm text-plum-950/60">Initiate a short, ad-hoc video interaction with a randomly selected authorised participant on a project.</p>
       </div>
 
-      {/* Demo-mode + authority banner */}
-      <div className="flex items-start gap-2 rounded-xl border border-plum-800/15 bg-plum-50/70 p-3 text-xs text-plum-950/70">
-        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-plum-800" aria-hidden="true" />
+      {/* Integration-status + authority banner (honest: no real video service). */}
+      <div className="flex items-start gap-2 rounded-xl border border-[#e2a610]/35 bg-amber-50 p-3 text-xs text-[#a15c00]">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
         <p>
-          <span className="font-semibold text-plum-950">Demo mode.</span> The remote participant is simulated — there is no live signaling backend, so no real person is contacted.
-          Your own camera/mic are used for the local preview. Calls are <span className="font-semibold">never recorded</span>; only metadata and an audit trail are stored.
+          <span className="font-semibold">{isVideoConfigured() ? 'Live video service connected.' : 'Video service not configured.'}</span> {isVideoConfigured()
+            ? 'Calls connect real participants through the configured signaling service.'
+            : 'No signaling backend is connected, so no real person can be contacted. Your own camera/mic power the local preview only; the remote participant is simulated and clearly labelled.'}
+          {' '}Calls are <span className="font-semibold">never recorded</span>; only metadata and an audit trail are stored.
         </p>
       </div>
 

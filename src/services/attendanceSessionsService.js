@@ -23,6 +23,7 @@ import { requirePermission, getActor } from './authz.js'
 import { PERMISSIONS } from '../data/rbac.js'
 import { record as recordAudit } from './auditService.js'
 import { recognizeFace, MODE as RECOGNITION_MODE, MODE_LABEL as RECOGNITION_MODE_LABEL } from './recognitionProvider.js'
+import { isRecognitionAvailable } from './integrationConfig.js'
 import { RECOGNITION_STATUS, ATTENDANCE_SOURCE, SESSION_STATE_LABEL, REVIEW_RECOGNITION } from '../data/attendanceModels.js'
 import { loadStore, saveStore, maxIdNum } from './persist.js'
 import { INSTITUTION_STUDENTS, CLASSES, sectionOf } from '../data/institutionData.js'
@@ -67,10 +68,12 @@ function pct(students) {
 }
 function decorate(s) {
   const c = counts(s.students)
+  const pending = s.students.filter((x) => x.result == null).length
   // `unknown` is the "needs review" bucket; surface it under the spec name too.
   return {
     ...s,
     ...c,
+    pending,
     reviewCount: c.unknown,
     attendancePct: pct(s.students),
     statusLabel: SESSION_STATE_LABEL[s.status] ?? s.status,
@@ -161,9 +164,29 @@ export async function runRecognition(id) {
   const s = sessions.find((x) => x.id === id)
   if (!s) throw new NotFoundError(`Session ${id} not found`)
   const n = s.students.length
-  // Every student goes through the RecognitionProvider facade. Detection is a
-  // separate step: NO_FACE / MULTIPLE_FACES / LOW_CONFIDENCE / NOT_MATCHED all
-  // route to human review — attendance is never auto-marked from detection.
+
+  // HONEST BOUNDARY (anti-fraud): with no authorized identity provider
+  // connected we do NOT fabricate any match. The camera capture is real, but
+  // every student is left PENDING VERIFICATION for authorized manual teacher
+  // marking. No fake "recognized/present" is ever produced.
+  if (!isRecognitionAvailable()) {
+    s.students = s.students.map((st) => ({
+      ...st, result: null, confidence: null, method: null,
+      recognitionStatus: RECOGNITION_STATUS.NOT_AVAILABLE, source: null,
+      timestamp: nowISO(), original: null, reviewStatus: 'pending',
+    }))
+    s.status = 'review'
+    s.recognitionAvailable = false
+    persistSessions()
+    recordAudit('ATTENDANCE_CAPTURE', { entityId: id, metadata: { class: s.class, recognition: 'not-connected', mode: RECOGNITION_MODE } })
+    return decorate(s)
+  }
+
+  // Recognition IS available (demo/live). Every student goes through the
+  // RecognitionProvider facade. Detection is a separate step: NO_FACE /
+  // MULTIPLE_FACES / LOW_CONFIDENCE / NOT_MATCHED all route to human review —
+  // attendance is never auto-marked from detection.
+  s.recognitionAvailable = true
   s.students = await Promise.all(s.students.map(async (st, i) => {
     // Absent = an enrolled student never seen during the session (no run).
     if (i === n - 1) {
@@ -239,6 +262,13 @@ export async function submitAttendanceSession(id, { override = false } = {}) {
     throw err
   }
   if (!s.students.length) throw new Error('This session has no students to submit.')
+  // Every student must have a final status — no one left Pending Verification.
+  const pending = s.students.filter((x) => x.result == null).length
+  if (pending > 0) {
+    const err = new Error(`${pending} student(s) still Pending Verification. Mark each Present or Absent before submitting.`)
+    err.pending = pending
+    throw err
+  }
   const unresolved = s.students.filter((x) => x.result === 'unknown').length
   if (unresolved > 0 && !override) {
     const err = new Error(`${unresolved} unresolved case(s) remain. Resolve them or use an authorised override.`)

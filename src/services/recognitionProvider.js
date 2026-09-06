@@ -25,10 +25,12 @@
 import { loadModels, detectFaces, alignFace, computeEmbedding, PROVIDER_INFO } from './faceRecognitionProvider.js'
 import { matchEmbedding } from './biometricVault.js'
 import { ATTENDANCE_CONFIG, RECOGNITION_STATUS, ATTENDANCE_SOURCE } from '../data/attendanceModels.js'
+import { RECOGNITION, LABELS, isRecognitionAvailable } from './integrationConfig.js'
 
-/** 'demo' = simulated outcomes (labelled in UI); 'live' = real model + vault. */
-export const MODE = 'demo'
-export const MODE_LABEL = MODE === 'demo' ? 'Demo Recognition Mode' : 'Live Recognition'
+/** 'not-connected' (default, honest) | 'demo' (simulated, labelled) | 'live' (real model + vault). */
+export const MODE = RECOGNITION
+export const MODE_LABEL = MODE === 'live' ? 'Live Recognition' : MODE === 'demo' ? 'Demo Recognition (simulated)' : LABELS.recognitionNotConnected
+export const CONNECTED = isRecognitionAvailable()
 export const PROVIDER = PROVIDER_INFO
 
 function hash(str) {
@@ -55,6 +57,11 @@ export async function detectFace(frame, { scenario = 'one', identityToken = null
  *             source: string, timestamp: string, faceCount: number }}
  */
 export async function recognizeFace(frame, { scenario = 'match', identityToken = null } = {}) {
+  // Honest boundary: with no authorized provider connected we NEVER fabricate an
+  // identity match. Callers must fall back to authorized manual verification.
+  if (!isRecognitionAvailable()) {
+    return { recognitionStatus: RECOGNITION_STATUS.NOT_AVAILABLE, studentId: null, confidence: null, source: null, timestamp: new Date().toISOString(), faceCount: 0 }
+  }
   const source = MODE === 'demo' ? ATTENDANCE_SOURCE.MOCK_DEMO : ATTENDANCE_SOURCE.FACE_RECOGNITION
   const timestamp = new Date().toISOString()
 

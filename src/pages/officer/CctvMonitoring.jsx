@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { PERMISSIONS } from '../../data/rbac.js'
 import { listCameras, getCctvHealth, getCctvFilterOptions, listCctvAlerts, getCctvAnalytics, testCamera, deleteCamera } from '../../services/cctvService.js'
+import { STREAM_MODE_LABEL } from '../../services/streamProvider.js'
 import StatCard from '../../components/officer/StatCard.jsx'
 import DataTable from '../../components/officer/table/DataTable.jsx'
 import CctvFilters from '../../components/officer/cctv/CctvFilters.jsx'
@@ -109,12 +110,11 @@ export default function CctvMonitoring() {
         )}
       </div>
 
-      {/* Honest scope banner — no real government CCTV is connected. */}
-      <div className="flex items-start gap-2 rounded-xl border border-plum-800/15 bg-plum-50/70 p-3 text-xs text-plum-950/70">
-        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-plum-800" aria-hidden="true" />
+      {/* Honest scope banner — camera gateway status + seed-data label. */}
+      <div className="flex items-start gap-2 rounded-xl border border-[#e2a610]/35 bg-amber-50 p-3 text-xs text-[#a15c00]">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
         <p>
-          <span className="font-semibold text-plum-950">Demonstration environment.</span> Feeds shown here are simulated sample
-          streams, not live government cameras. The architecture supports RTSP / WebRTC / HLS sources through a secure gateway once real cameras are connected.
+          <span className="font-semibold">{STREAM_MODE_LABEL}.</span> The camera inventory below is <span className="font-semibold">seed / demo data</span> — not live government cameras. Registered/edited cameras persist, but live playback needs a media gateway; opening a camera shows "{STREAM_MODE_LABEL}" rather than a fabricated feed. Architecture: RTSP → secure gateway → WebRTC/HLS → browser (see INTEGRATION-STATUS.md).
         </p>
       </div>
 

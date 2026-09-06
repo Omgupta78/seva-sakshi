@@ -44,6 +44,8 @@ export default function VideoPlayer({ camera }) {
           <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
           <p className="text-xs">Connecting to stream…</p>
         </div>
+      ) : session?.mode === 'not-configured' ? (
+        <NotConfigured reason={session?.reason} />
       ) : offline || !session?.available ? (
         <NoSignal reason={session?.reason} />
       ) : (
@@ -90,6 +92,17 @@ export default function VideoPlayer({ camera }) {
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+/** "Camera gateway not configured" — no media gateway wired; never a fake feed. */
+function NotConfigured({ reason }) {
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[repeating-linear-gradient(45deg,#111827,#111827_10px,#0b0a14_10px,#0b0a14_20px)] px-6 text-center text-white/60">
+      <VideoOff className="h-8 w-8" aria-hidden="true" />
+      <p className="text-sm font-semibold text-white/80">Camera gateway not configured</p>
+      <p className="max-w-xs text-xs">{reason ?? 'No media gateway is configured for this deployment.'}</p>
     </div>
   )
 }

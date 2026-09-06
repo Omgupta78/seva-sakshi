@@ -112,7 +112,7 @@ export default function VideoCallStage({ call, onClose }) {
           <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
             <CircleSlash className="h-3 w-3" aria-hidden="true" /> Not being recorded
           </span>
-          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/70">Demo mode</span>
+          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-amber-200">No live connection</span>
         </div>
       </div>
 

@@ -32,12 +32,13 @@ import { requestInstitutionPlayback } from './institutionCctvService.js'
 import { getStreamConfig, STREAM_TYPES } from '../data/streamConfig.js'
 import { CAMERAS } from '../data/cctvSeedData.js'
 import { INSTITUTION_CAMERAS } from '../data/institutionCctvData.js'
+import { CCTV_GATEWAY, LABELS } from './integrationConfig.js'
 
-/** 'demo' = DemoStreamProvider (simulated); 'live' = real gateway (HLS/WebRTC).
- *  MUST default to 'demo'. A real deployment flips this (e.g. build-time env)
- *  only once a media gateway + backend playback endpoint are wired. */
-export const STREAM_MODE = 'demo'
-export const STREAM_MODE_LABEL = STREAM_MODE === 'demo' ? 'Demo Stream' : 'Live Stream'
+/** 'not-configured' (default, honest) | 'demo' (simulated, labelled) | 'live'.
+ *  Driven by integrationConfig. When 'not-configured' the player shows
+ *  "Camera gateway not configured" — never a fake stream called live. */
+export const STREAM_MODE = CCTV_GATEWAY
+export const STREAM_MODE_LABEL = STREAM_MODE === 'live' ? 'Live Stream' : STREAM_MODE === 'demo' ? 'Demo Stream' : LABELS.cctvNotConfigured
 
 /** Connection lifecycle a player surfaces (spec §6/§7). */
 export const CONNECTION = { LIVE: 'LIVE', CONNECTING: 'CONNECTING', OFFLINE: 'OFFLINE', NO_SIGNAL: 'NO_SIGNAL', ERROR: 'ERROR' }
@@ -132,6 +133,15 @@ function cameraMeta(cameraId) {
  * descriptor — never an RTSP URL or credential.
  */
 export async function requestCameraPlayback(cameraId) {
+  // Honest boundary: no media gateway configured → never fabricate a stream.
+  if (STREAM_MODE === 'not-configured') {
+    return {
+      cameraId, mode: 'not-configured', provider: null, streamType: null, mediaServerId: null,
+      available: false, transport: null, label: LABELS.cctvNotConfigured,
+      token: null, expiresAt: null, playbackUrl: null,
+      reason: 'No media gateway is configured for this deployment. Configure VITE_CCTV_GATEWAY + a gateway/backend to enable live playback.',
+    }
+  }
   const meta = cameraMeta(cameraId)
   const cfg = getStreamConfig(cameraId, { mode: STREAM_MODE, ingestion: meta?.sourceProtocol ?? 'rtsp' })
   const provider = selectProvider(cfg.streamType)
