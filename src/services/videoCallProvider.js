@@ -31,11 +31,31 @@ export const PROVIDER_LABEL = 'Demo (no live signaling)'
 
 /**
  * Acquire the officer's local camera + microphone.
- * @returns {Promise<{ stream: MediaStream|null, hasVideo: boolean, hasAudio: boolean, error: string|null }>}
+ *
+ * getUserMedia is only available in a SECURE CONTEXT — https:// or
+ * http://localhost. On a plain http:// LAN address (e.g. http://192.168.x.x)
+ * the API is absent, so we detect that explicitly and tell the user to use the
+ * HTTPS dev URL (see README → "Testing the camera on a physical phone").
+ *
+ * `kind` classifies the outcome so callers can branch on a stable value:
+ *   'ok' | 'insecure' | 'unsupported' | 'denied' | 'notfound' | 'inuse' | 'error'
+ *
+ * @returns {Promise<{ stream: MediaStream|null, hasVideo: boolean, hasAudio: boolean, error: string|null, kind: string }>}
  */
 export async function getLocalMedia({ video = true, audio = true } = {}) {
-  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-    return { stream: null, hasVideo: false, hasAudio: false, error: 'This browser cannot access camera/microphone.' }
+  if (typeof navigator === 'undefined' || typeof window === 'undefined') {
+    return { stream: null, hasVideo: false, hasAudio: false, kind: 'unsupported', error: 'Camera access is not available in this environment.' }
+  }
+  // Secure-context guard: on http:// (non-localhost) getUserMedia is blocked.
+  if (window.isSecureContext === false || !navigator.mediaDevices?.getUserMedia) {
+    const insecure = window.isSecureContext === false
+    return {
+      stream: null, hasVideo: false, hasAudio: false,
+      kind: insecure ? 'insecure' : 'unsupported',
+      error: insecure
+        ? 'The camera needs a secure (HTTPS) connection. Open the app over its https:// address on your phone — not a plain http:// IP. See the README.'
+        : 'This browser does not support camera access.',
+    }
   }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video, audio })
@@ -43,15 +63,17 @@ export async function getLocalMedia({ video = true, audio = true } = {}) {
       stream,
       hasVideo: stream.getVideoTracks().length > 0,
       hasAudio: stream.getAudioTracks().length > 0,
+      kind: 'ok',
       error: null,
     }
   } catch (err) {
-    const map = {
-      NotAllowedError: 'Camera/microphone permission was denied. The call will continue without your video.',
-      NotFoundError: 'No camera or microphone was found on this device.',
-      NotReadableError: 'Your camera or microphone is already in use by another app.',
-    }
-    return { stream: null, hasVideo: false, hasAudio: false, error: map[err?.name] ?? 'Could not start your camera/microphone.' }
+    const name = err?.name || ''
+    let kind = 'error'
+    let error = 'Could not start your camera. Please try again.'
+    if (name === 'NotAllowedError' || name === 'SecurityError') { kind = 'denied'; error = 'Camera permission was denied. Enable camera access for this site in your browser settings, then retry.' }
+    else if (name === 'NotFoundError' || name === 'OverconstrainedError' || name === 'DevicesNotFoundError') { kind = 'notfound'; error = 'No camera was found on this device.' }
+    else if (name === 'NotReadableError' || name === 'TrackStartError' || name === 'AbortError') { kind = 'inuse'; error = 'The camera is already in use by another app or browser tab. Close it and retry.' }
+    return { stream: null, hasVideo: false, hasAudio: false, kind, error }
   }
 }
 

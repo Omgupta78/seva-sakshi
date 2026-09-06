@@ -85,6 +85,102 @@ npm run build      # production build to dist/
 npm run preview    # preview the production build locally
 ```
 
+## Testing the camera on a physical phone
+
+The attendance camera (Institute → **Start Attendance** → open a session →
+**Open Camera**) uses the browser's real `navigator.mediaDevices.getUserMedia()`.
+That API only works in a **secure context**: `https://` **or** `http://localhost`.
+
+- On your **laptop**, `http://localhost:5173` is a secure context, so the camera
+  works there directly.
+- On a **phone**, opening your laptop by LAN IP (e.g. `http://192.168.1.20:5173`)
+  is **not** a secure context — the camera will be blocked and the app shows
+  *"The camera needs a secure (HTTPS) connection."* You must reach the app over
+  **HTTPS**. Use one of the two methods below.
+
+### Camera behaviour you can rely on
+
+- The camera is requested **only** after you explicitly click **Open Camera**
+  inside a started attendance session — never on page load.
+- Permission outcomes are handled distinctly: **granted** (live preview),
+  **denied**, **no camera found**, **already in use**, **insecure/HTTP**, and
+  **unsupported browser** — each with its own on-screen message and a Retry.
+- Every camera track is stopped when you press **Stop camera**, when attendance
+  is captured/ends, when you navigate away from the page, and when you log out.
+- The video preview uses `playsInline` + `muted` so it works on **Android
+  Chrome**, **iPhone Safari** (iOS 11+), and desktop browsers, in a responsive
+  16:9 frame.
+- The `MediaStream` is only ever held in memory — it is **never** written to
+  `localStorage`/`sessionStorage`, and no backend secret is involved (the client
+  only ships `VITE_`-prefixed public config).
+
+---
+
+### METHOD A — Local HTTPS via a tunnel (recommended for dev)
+
+```
+Laptop → local React app (localhost) → HTTPS tunnel → phone browser
+```
+
+This exposes your locally-running app at a temporary **`https://…`** URL your
+phone can open. It uses [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
+(install once: `winget install Cloudflare.cloudflared`).
+
+**Option A1 — one command (production build + tunnel), simplest:**
+
+```bash
+npm run share
+```
+
+Keep that window open and look for the line ending in **`.trycloudflare.com`**.
+
+**Option A2 — live-reload dev server + tunnel (two terminals):**
+
+```bash
+# terminal 1 — dev server, reachable by the tunnel
+npm run dev -- --host
+
+# terminal 2 — open an HTTPS tunnel to the dev server
+cloudflared tunnel --url http://localhost:5173
+```
+
+`vite.config.js` already allow-lists `*.trycloudflare.com`, so the tunnel URL
+loads without extra config.
+
+**On your phone:** open the printed HTTPS URL, e.g.
+
+```
+https://<random-words>.trycloudflare.com
+```
+
+(the exact subdomain is generated fresh each run — copy it from the terminal).
+Then: **Institute login → Attendance → Start Attendance Session → open the
+session → Open Camera → Allow** when the browser asks for camera permission.
+
+> iPhone Safari only grants camera on a genuine `https://` origin (which the
+> tunnel provides) and requires you to tap **Allow** on the permission prompt.
+
+### METHOD B — Production / staging HTTPS deployment
+
+```
+Frontend → HTTPS static hosting        Backend → HTTPS API
+```
+
+For a shared/staging environment, deploy the built frontend to any HTTPS static
+host and (if/when a backend is added) point it at an HTTPS API:
+
+```bash
+npm run build     # outputs static assets to dist/
+# deploy dist/ to Vercel / Netlify / Cloudflare Pages / any HTTPS static host
+```
+
+- The frontend **must** be served over `https://` for the camera to work.
+- This app is currently **frontend-only**; when a backend is introduced, serve
+  its API over `https://` too and expose only `VITE_`-prefixed public values to
+  the client (never service keys or secrets — see `.env.example`).
+- Once hosted, open the deployment's `https://…` URL on the phone and follow the
+  same **Start Attendance → Open Camera → Allow** steps.
+
 ## Demo login
 
 This is a **frontend-only demo** — there is no backend, and no real authentication
