@@ -15,19 +15,56 @@ import { ROLES } from './rbac.js'
 /** Department portal uses the existing employee login (EMP1001 / Passw0rd!). */
 export const DEPARTMENT_DEMO = { employeeId: 'EMP1001', password: 'Passw0rd!' }
 
-/** Institution portal accounts, keyed by Institution ID + username. */
+/** Institution portal accounts, keyed by Institution ID + username.
+ *  The Institution ID here is ALSO the device's video-call code: the institute
+ *  goes online under it and the Department rings the same id. Keep them in sync
+ *  with the department's institution registry (listCallableInstitutions). */
 const INSTITUTION_ACCOUNTS = {
   'INST-001': {
     institutionName: 'Government Ashram Shala, Wada',
     organizationId: 'ORG-001',
+    district: 'Thane',
     users: {
       admin: { role: ROLES.INSTITUTION_ADMIN, name: 'Ravi Deshpande', initials: 'RD', title: 'Institution Administrator' },
       teacher: { role: ROLES.INSTITUTION_STAFF, name: 'Kavita More', initials: 'KM', title: 'Class Teacher' },
     },
   },
+  'INST-002': {
+    institutionName: 'SC/ST Boys Hostel, Solapur',
+    organizationId: 'ORG-002',
+    district: 'Solapur',
+    users: {
+      admin: { role: ROLES.INSTITUTION_ADMIN, name: 'Baban Kadam', initials: 'BK', title: 'Institution Administrator' },
+      teacher: { role: ROLES.INSTITUTION_STAFF, name: 'Suresh Jadhav', initials: 'SJ', title: 'Warden' },
+    },
+  },
+  'INST-003': {
+    institutionName: 'Adarsh Vidyalaya, Nagpur',
+    organizationId: 'ORG-003',
+    district: 'Nagpur',
+    users: {
+      admin: { role: ROLES.INSTITUTION_ADMIN, name: 'Vikram Patil', initials: 'VP', title: 'Institution Administrator' },
+      teacher: { role: ROLES.INSTITUTION_STAFF, name: 'Meena Joshi', initials: 'MJ', title: 'Class Teacher' },
+    },
+  },
 }
 
 const DEMO_PASSWORD = 'Passw0rd!'
+
+/**
+ * The department's callable institution registry — every institution that has
+ * a portal account and can therefore go online to receive a video call. The
+ * `institutionId` is the exact video-call code both sides use, so the
+ * Department never has to type a code by hand (no typos, no mismatch).
+ */
+export function listCallableInstitutions() {
+  return Object.entries(INSTITUTION_ACCOUNTS).map(([institutionId, inst]) => ({
+    institutionId,
+    name: inst.institutionName,
+    organizationId: inst.organizationId,
+    district: inst.district ?? '—',
+  }))
+}
 
 /** Validate an institution login. Returns a user profile or null. */
 export function resolveInstitutionLogin(institutionId, username, password) {

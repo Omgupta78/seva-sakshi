@@ -77,6 +77,38 @@ export function normalizeCode(input) {
   return String(input || '').trim().toUpperCase().replace(/\s+/g, '').replace(CODE_NAMESPACE.toUpperCase(), '')
 }
 
+/** A truly silent, disabled audio track. Used only as the LOCAL outgoing
+ *  placeholder when the device has no camera or mic at all, so the WebRTC
+ *  connection still has one media line to negotiate and ICE can complete
+ *  (otherwise a zero-track call can stall in 'connecting' forever). It carries
+ *  no real audio and is not a fabricated remote participant. */
+function silentAudioTrack() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext
+    if (!Ctx) return null
+    const ctx = new Ctx()
+    const dst = ctx.createMediaStreamDestination()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    gain.gain.value = 0
+    osc.connect(gain); gain.connect(dst); osc.start()
+    const track = dst.stream.getAudioTracks()[0]
+    if (track) track.enabled = false
+    return track ?? null
+  } catch { return null }
+}
+
+/** Return a stream safe to send: the real one when it has tracks, else a
+ *  minimal stream with a single silent placeholder track so the call still
+ *  negotiates (receive-only). */
+function negotiableStream(stream) {
+  if (stream && stream.getTracks().length > 0) return stream
+  const s = new MediaStream()
+  const t = silentAudioTrack()
+  if (t) s.addTrack(t)
+  return s
+}
+
 export function createCallSession({ localStream, onOpen, onStatus, onRemoteStream, onError, onIncoming, fixedCode = null }) {
   let peer = null
   let currentCall = null
@@ -89,29 +121,65 @@ export function createCallSession({ localStream, onOpen, onStatus, onRemoteStrea
   let retries = 0
   let destroyed = false
   let retryTimer = null
+  let openTimer = null // watchdog: broker must acknowledge us within a few seconds
+  let opened = false
+  let reconnects = 0
+  let callWatch = null // polls the RTCPeerConnection so camera-off calls still connect
+
+  function stopWatch() { if (callWatch) { clearInterval(callWatch); callWatch = null } }
+
+  function markConnected() { onStatus?.('connected'); stopWatch() }
 
   function bindCall(call) {
     currentCall = call
-    call.on('stream', (remote) => { onRemoteStream?.(remote); onStatus?.('connected') })
-    call.on('close', () => { clearInterval(watch); onStatus?.('ended') })
-    call.on('error', (e) => { clearInterval(watch); onError?.(mapError(e)) })
-    // Fallback: report 'connected' from the underlying RTCPeerConnection too,
-    // so a call still shows connected when one side has its camera off (no
+    call.on('stream', (remote) => { onRemoteStream?.(remote); markConnected() })
+    call.on('close', () => { stopWatch(); onStatus?.('ended') })
+    call.on('error', (e) => { stopWatch(); onError?.(mapError(e)) })
+    // Report 'connected' from the underlying RTCPeerConnection too, so a call
+    // still shows connected when a side has no camera and sends no media (no
     // remote 'stream' event). Real camera calls also fire the 'stream' path.
-    const watch = setInterval(() => {
+    // We attach a state-change listener as soon as the PC exists (fast path)
+    // and keep polling as a fallback; we never give up early on a transient
+    // 'failed', because the call may still recover — only 'close'/destroy stop
+    // the watch. This keeps the CALLER's UI in sync with the answerer.
+    let bound = false
+    stopWatch()
+    callWatch = setInterval(() => {
       const pc = call.peerConnection
       if (!pc) return
-      if (pc.connectionState === 'connected' || pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-        onStatus?.('connected'); clearInterval(watch)
-      } else if (['failed', 'closed'].includes(pc.connectionState)) {
-        clearInterval(watch)
+      if (!bound) {
+        bound = true
+        const check = () => {
+          if (pc.connectionState === 'connected' || pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') markConnected()
+        }
+        pc.addEventListener('connectionstatechange', check)
+        pc.addEventListener('iceconnectionstatechange', check)
       }
-    }, 500)
+      if (pc.connectionState === 'connected' || pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') markConnected()
+    }, 400)
   }
 
   function buildPeer() {
     peer = new Peer(CODE_NAMESPACE + code, peerOptions())
-    peer.on('open', () => onOpen?.(code)) // hand the UI the code
+    // Watchdog: if the broker never sends 'open', the signaling server is
+    // unreachable (public broker down/blocked, or a bad self-host config).
+    // Surface it instead of leaving the user staring at "Starting…" forever.
+    if (openTimer) clearTimeout(openTimer)
+    openTimer = setTimeout(() => {
+      if (!opened && !destroyed) {
+        onError?.(`Could not reach the signaling server (${SIGNALING_LABEL}). Check both devices are online${SELF_HOSTED ? ' and can reach your PeerServer' : '; the public broker may be busy — reopen to retry'}.`)
+      }
+    }, 12000)
+    peer.on('open', () => {
+      const firstOpen = !opened
+      opened = true
+      reconnects = 0
+      if (openTimer) { clearTimeout(openTimer); openTimer = null }
+      // Only announce 'open' the FIRST time. PeerJS re-emits 'open' after a
+      // reconnect to the broker; re-running onOpen would reset the call status
+      // (and re-dial an auto-call), clobbering an already-connected call.
+      if (firstOpen) onOpen?.(code) // hand the UI the code
+    })
     peer.on('call', (call) => {
       // Do NOT auto-answer — surface an incoming-call notification and let the
       // user Accept (which starts their media) or Decline.
@@ -120,7 +188,18 @@ export function createCallSession({ localStream, onOpen, onStatus, onRemoteStrea
       onIncoming?.({ from: call.peer })
       call.on('close', () => { if (pendingCall === call) { pendingCall = null; onStatus?.('ended') } })
     })
-    peer.on('disconnected', () => onStatus?.('disconnected'))
+    peer.on('disconnected', () => {
+      // The socket to the broker dropped but the peer is not destroyed — the id
+      // is still ours. Reconnect a few times to stay reachable (keeps the
+      // institute online through brief network blips) before giving up.
+      if (destroyed) return
+      if (reconnects < 5) {
+        reconnects += 1
+        try { peer?.reconnect() } catch { /* noop */ }
+      } else {
+        onStatus?.('disconnected')
+      }
+    })
     peer.on('close', () => onStatus?.('ended'))
     peer.on('error', (e) => {
       if (e?.type === 'unavailable-id') {
@@ -155,7 +234,7 @@ export function createCallSession({ localStream, onOpen, onStatus, onRemoteStrea
      *  empty stream when the camera is unavailable → receive-only). */
     accept() {
       if (!pendingCall) return
-      pendingCall.answer(stream ?? new MediaStream())
+      pendingCall.answer(negotiableStream(stream))
       bindCall(pendingCall)
       pendingCall = null
     },
@@ -172,18 +251,21 @@ export function createCallSession({ localStream, onOpen, onStatus, onRemoteStrea
       if (!short) return onError?.('Enter the other device’s code.')
       if (short === code) return onError?.('That is your own code — enter the OTHER device’s code.')
       onStatus?.('calling')
-      // Use our real media, or an empty stream when the camera is unavailable
-      // (receive-only — the other side's video still comes through).
-      const c = peer.call(CODE_NAMESPACE + short, stream ?? new MediaStream())
+      // Use our real media, or a minimal placeholder stream when the camera is
+      // unavailable (receive-only — the other side's video still comes through,
+      // and the connection still negotiates so it can reach 'connected').
+      const c = peer.call(CODE_NAMESPACE + short, negotiableStream(stream))
       if (!c) return onError?.('Could not place the call.')
       bindCall(c)
     },
     /** Hang up the current call but keep the session (peer) alive. */
-    hangup() { try { currentCall?.close() } catch { /* noop */ } currentCall = null },
+    hangup() { stopWatch(); try { currentCall?.close() } catch { /* noop */ } currentCall = null },
     /** Tear everything down (call + peer). */
     destroy() {
       destroyed = true
+      stopWatch()
       if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
+      if (openTimer) { clearTimeout(openTimer); openTimer = null }
       try { currentCall?.close() } catch { /* noop */ }
       try { peer?.destroy() } catch { /* noop */ }
       currentCall = null

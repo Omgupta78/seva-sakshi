@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Shuffle, ShieldCheck, Info, Video } from 'lucide-react'
+import { Shuffle, ShieldCheck, Info, Video, Building2, PhoneCall } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { listCallableInstitutions } from '../../data/demoAccounts.js'
 import { useAsync } from '../../hooks/useAsync.js'
 import {
   getVideoCheckProjects,
@@ -12,7 +13,7 @@ import ParticipantReveal from '../../components/officer/video/ParticipantReveal.
 import VideoCallStage from '../../components/officer/video/VideoCallStage.jsx'
 import CallRecordsTable from '../../components/officer/video/CallRecordsTable.jsx'
 import LiveVideoCall from '../../components/video/LiveVideoCall.jsx'
-import { isVideoConfigured, VIDEO_SERVICE } from '../../services/integrationConfig.js'
+import { isVideoConfigured } from '../../services/integrationConfig.js'
 
 export default function VideoCheck() {
   const { user } = useAuth()
@@ -23,7 +24,15 @@ export default function VideoCheck() {
   const [activeCall, setActiveCall] = useState(null)
   const [liveCall, setLiveCall] = useState(false)
   const [autoCall, setAutoCall] = useState(null)
-  const [callCode, setCallCode] = useState('INST-001')
+  const [callTarget, setCallTarget] = useState(null) // institution being called (for the call title)
+  const [manualCode, setManualCode] = useState('')
+  const institutions = listCallableInstitutions()
+
+  function callInstitution(inst) {
+    setCallTarget(inst)
+    setAutoCall(inst.institutionId)
+    setLiveCall(true)
+  }
 
   const { data: projectData } = useAsync(() => getVideoCheckProjects(), [])
   const { data: callData, loading: callsLoading, refetch: refetchCalls } = useAsync(() => listCalls(), [])
@@ -94,20 +103,36 @@ export default function VideoCheck() {
         </p>
       </div>
 
-      {/* Real WebRTC — call an online institution by its code, or a manual 2-device call. */}
+      {/* Real WebRTC — call a registered institution directly, or a manual 2-device call. */}
       <div className="rounded-2xl border border-[#138808]/25 bg-green-50/50 p-4 shadow-sm sm:p-5">
         <h2 className="flex items-center gap-1.5 text-sm font-bold text-plum-950"><Video className="h-4 w-4 text-[#16794f]" aria-hidden="true" /> Live Video Call — real WebRTC</h2>
-        <p className="mt-0.5 text-xs text-plum-950/60">Genuine peer-to-peer video using your real camera/mic. Ring an institution that is online (it must open Video Check → “Go Online”), or start a manual call and share the code.</p>
-        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
+        <p className="mt-0.5 text-xs text-plum-950/60">Genuine peer-to-peer video using your real camera/mic. Pick a registered institution and press Call — it rings that institution when its staff have the Institute portal → Video Check open. Each institution is dialled by its own ID, so there are no codes to type.</p>
+
+        <ul className="mt-3 divide-y divide-plum-950/10 overflow-hidden rounded-xl border border-plum-950/10 bg-white">
+          {institutions.map((inst) => (
+            <li key={inst.institutionId} className="flex flex-wrap items-center gap-3 px-3 py-2.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#138808]/10 text-[#16794f]"><Building2 className="h-4 w-4" aria-hidden="true" /></span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-plum-950">{inst.name}</p>
+                <p className="text-[11px] text-plum-950/55"><span className="font-mono font-semibold text-plum-950/70">{inst.institutionId}</span> · {inst.district}</p>
+              </div>
+              <button type="button" onClick={() => callInstitution(inst)} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#138808] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f6b06]">
+                <PhoneCall className="h-4 w-4" aria-hidden="true" /> Call
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-3 flex flex-col gap-2 border-t border-plum-950/10 pt-3 sm:flex-row sm:items-end">
           <div className="flex-1">
-            <label htmlFor="call-inst" className="mb-1 block text-xs font-semibold text-plum-950/70">Institution code to ring</label>
-            <input id="call-inst" value={callCode} onChange={(e) => setCallCode(e.target.value.toUpperCase())} placeholder="e.g. INST-001" className="w-full rounded-lg border border-plum-950/15 bg-white px-3 py-2 font-mono text-sm text-plum-950 focus:outline-none" />
+            <label htmlFor="call-inst" className="mb-1 block text-[11px] font-semibold text-plum-950/60">Or dial any code manually (another device / inspector)</label>
+            <input id="call-inst" value={manualCode} onChange={(e) => setManualCode(e.target.value.toUpperCase())} placeholder="e.g. INST-001 or 4F7K2Q" className="w-full rounded-lg border border-plum-950/15 bg-white px-3 py-2 font-mono text-sm text-plum-950 focus:outline-none" />
           </div>
-          <button type="button" onClick={() => { setAutoCall(callCode.trim()); setLiveCall(true) }} disabled={!callCode.trim()} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#138808] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f6b06] disabled:opacity-50">
-            <Video className="h-4 w-4" aria-hidden="true" /> Call Institution
+          <button type="button" onClick={() => { setCallTarget(null); setAutoCall(manualCode.trim()); setLiveCall(true) }} disabled={!manualCode.trim()} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#138808]/40 bg-white px-4 py-2 text-sm font-semibold text-[#16794f] hover:bg-green-50 disabled:opacity-50">
+            <PhoneCall className="h-4 w-4" aria-hidden="true" /> Call code
           </button>
-          <button type="button" onClick={() => { setAutoCall(null); setLiveCall(true) }} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#138808]/40 bg-white px-4 py-2 text-sm font-semibold text-[#16794f] hover:bg-green-50">
-            Start Manual Call
+          <button type="button" onClick={() => { setCallTarget(null); setAutoCall(null); setLiveCall(true) }} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-plum-950/15 bg-white px-4 py-2 text-sm font-semibold text-plum-950/70 hover:bg-plum-50">
+            Open without calling
           </button>
         </div>
       </div>
@@ -168,7 +193,7 @@ export default function VideoCheck() {
 
       {/* Active call overlay */}
       {activeCall && <VideoCallStage call={activeCall} onClose={handleCloseCall} />}
-      {liveCall && <LiveVideoCall title="Department — Live Video Call" subtitle={user?.name} autoCallCode={autoCall} onClose={() => { setLiveCall(false); setAutoCall(null) }} />}
+      {liveCall && <LiveVideoCall title={callTarget ? `Calling ${callTarget.name}` : 'Department — Live Video Call'} subtitle={callTarget ? `${callTarget.institutionId} · ${user?.name}` : user?.name} autoCallCode={autoCall} onClose={() => { setLiveCall(false); setAutoCall(null); setCallTarget(null) }} />}
     </div>
   )
 }
