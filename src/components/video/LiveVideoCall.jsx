@@ -44,7 +44,7 @@ export default function LiveVideoCall({ title = 'Live Video Call', subtitle, onC
         onOpen: (id) => {
           if (disposed) return
           setPeerId(id)
-          setStatus((s) => (s === 'starting-media' ? 'ready' : s))
+          setStatus((s) => (s === 'starting-media' || s === 'registering' ? 'ready' : s))
           // Department flow: auto-dial the institution's code once we're open.
           if (autoCallCode) { setStatus('calling'); session.call(autoCallCode) }
         },
@@ -93,6 +93,7 @@ export default function LiveVideoCall({ title = 'Live Video Call', subtitle, onC
 
   const statusText = {
     'starting-media': 'Starting your camera…',
+    registering: 'Reserving your code…',
     ready: fixedCode ? `Online — reachable as ${peerId ?? '…'}. Waiting for a call.` : 'Ready — share your code or enter the other device’s code',
     calling: 'Calling…',
     incoming: 'Incoming call…',

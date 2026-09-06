@@ -87,6 +87,8 @@ export function createCallSession({ localStream, onOpen, onStatus, onRemoteStrea
   const fixed = fixedCode ? normalizeCode(fixedCode) : null
   let code = fixed ?? randomCode()
   let retries = 0
+  let destroyed = false
+  let retryTimer = null
 
   function bindCall(call) {
     currentCall = call
@@ -122,8 +124,22 @@ export function createCallSession({ localStream, onOpen, onStatus, onRemoteStrea
     peer.on('close', () => onStatus?.('ended'))
     peer.on('error', (e) => {
       if (e?.type === 'unavailable-id') {
-        // A fixed code is already held by another device — never silently change it.
-        if (fixed) { onError?.('This code is already online on another device. Only one device per code can be reachable.'); return }
+        if (fixed) {
+          // The fixed code is held by SOME peer on the broker. In practice this
+          // is almost always our OWN stale registration — a quick reload, or
+          // React StrictMode's double-mount in dev — and the broker frees the
+          // id a second or two after that socket drops. So retry a few times
+          // with a short delay before concluding another device truly holds it.
+          if (retries < 6 && !destroyed) {
+            retries += 1
+            try { peer?.destroy() } catch { /* noop */ }
+            onStatus?.('registering')
+            retryTimer = setTimeout(() => { if (!destroyed) buildPeer() }, 1200)
+            return
+          }
+          onError?.('This code is already online on another device. Only one device per code can be reachable.')
+          return
+        }
         if (retries < 3) { retries += 1; code = randomCode(); try { peer?.destroy() } catch { /* noop */ } buildPeer(); return }
       }
       onError?.(mapError(e))
@@ -166,6 +182,8 @@ export function createCallSession({ localStream, onOpen, onStatus, onRemoteStrea
     hangup() { try { currentCall?.close() } catch { /* noop */ } currentCall = null },
     /** Tear everything down (call + peer). */
     destroy() {
+      destroyed = true
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
       try { currentCall?.close() } catch { /* noop */ }
       try { peer?.destroy() } catch { /* noop */ }
       currentCall = null
