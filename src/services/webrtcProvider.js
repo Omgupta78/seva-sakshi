@@ -27,10 +27,22 @@ const env = import.meta.env ?? {}
  *  media when a direct path can't be established. */
 export const ICE_SERVERS = [
   { urls: env.VITE_STUN_URL || 'stun:stun.l.google.com:19302' },
+  // TURN relays media when a direct/STUN path can't be established (e.g. a phone
+  // on mobile data ↔ a PC on Wi-Fi, or behind carrier/symmetric NAT). Multiple
+  // endpoints may be given as a comma-separated VITE_TURN_URL, sharing one set
+  // of credentials. These are CLIENT ICE credentials (short-lived in prod),
+  // never RTSP/DB secrets.
   ...(env.VITE_TURN_URL
-    ? [{ urls: env.VITE_TURN_URL, username: env.VITE_TURN_USERNAME, credential: env.VITE_TURN_CREDENTIAL }]
+    ? [{
+        urls: env.VITE_TURN_URL.split(',').map((u) => u.trim()).filter(Boolean),
+        username: env.VITE_TURN_USERNAME,
+        credential: env.VITE_TURN_CREDENTIAL,
+      }]
     : []),
 ]
+
+/** True when a TURN relay is configured (needed for cross-network calls). */
+export const HAS_TURN = !!env.VITE_TURN_URL
 
 /** True when a self-hosted PeerServer is configured (else the public cloud broker). */
 export const SELF_HOSTED = !!env.VITE_PEERJS_HOST
