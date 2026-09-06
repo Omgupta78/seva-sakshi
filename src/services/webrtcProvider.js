@@ -64,10 +64,25 @@ function mapError(err) {
  * @param {{ localStream: MediaStream|null, onOpen:(id)=>void, onStatus:(s)=>void,
  *           onRemoteStream:(s:MediaStream)=>void, onError:(msg)=>void }} cfg
  */
+/** Short, phone-friendly room code (avoids ambiguous chars like O/0, I/1). */
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+const CODE_NAMESPACE = 'sevasakshi-' // scope our ids on the shared public broker
+function randomCode(len = 6) {
+  let c = ''
+  for (let i = 0; i < len; i++) c += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)]
+  return c
+}
+/** Normalise a user-typed code: uppercase, strip spaces and any pasted namespace. */
+export function normalizeCode(input) {
+  return String(input || '').trim().toUpperCase().replace(/\s+/g, '').replace(CODE_NAMESPACE.toUpperCase(), '')
+}
+
 export function createCallSession({ localStream, onOpen, onStatus, onRemoteStream, onError }) {
   let peer = null
   let currentCall = null
   let stream = localStream
+  let code = randomCode()
+  let retries = 0
 
   function bindCall(call) {
     currentCall = call
@@ -76,28 +91,42 @@ export function createCallSession({ localStream, onOpen, onStatus, onRemoteStrea
     call.on('error', (e) => onError?.(mapError(e)))
   }
 
-  peer = new Peer(undefined, peerOptions())
-  peer.on('open', (id) => onOpen?.(id))
-  peer.on('call', (call) => {
-    onStatus?.('incoming')
-    call.answer(stream ?? undefined) // answer with our real local media
-    bindCall(call)
-  })
-  peer.on('disconnected', () => onStatus?.('disconnected'))
-  peer.on('close', () => onStatus?.('ended'))
-  peer.on('error', (e) => onError?.(mapError(e)))
+  function buildPeer() {
+    peer = new Peer(CODE_NAMESPACE + code, peerOptions())
+    peer.on('open', () => onOpen?.(code)) // hand the UI the SHORT code
+    peer.on('call', (call) => {
+      onStatus?.('incoming')
+      call.answer(stream ?? undefined) // answer with our real local media
+      bindCall(call)
+    })
+    peer.on('disconnected', () => onStatus?.('disconnected'))
+    peer.on('close', () => onStatus?.('ended'))
+    peer.on('error', (e) => {
+      // Rare collision on the shared broker → pick a new code and retry once or twice.
+      if (e?.type === 'unavailable-id' && retries < 3) {
+        retries += 1
+        code = randomCode()
+        try { peer?.destroy() } catch { /* noop */ }
+        buildPeer()
+        return
+      }
+      onError?.(mapError(e))
+    })
+  }
+  buildPeer()
 
   return {
-    get peerId() { return peer?.id ?? null },
+    get peerId() { return code },
     setLocalStream(s) { stream = s },
-    /** Initiate a call to another device's peer code. */
+    /** Initiate a call to another device's SHORT code. */
     call(remoteId) {
       if (!peer) return onError?.('Call session not ready.')
       if (!stream) return onError?.('Start your camera before calling.')
-      const trimmed = String(remoteId || '').trim()
-      if (!trimmed) return onError?.('Enter the other device’s code.')
+      const short = normalizeCode(remoteId)
+      if (!short) return onError?.('Enter the other device’s code.')
+      if (short === code) return onError?.('That is your own code — enter the OTHER device’s code.')
       onStatus?.('calling')
-      const c = peer.call(trimmed, stream)
+      const c = peer.call(CODE_NAMESPACE + short, stream)
       if (!c) return onError?.('Could not place the call.')
       bindCall(c)
     },

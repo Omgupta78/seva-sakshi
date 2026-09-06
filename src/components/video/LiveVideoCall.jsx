@@ -139,19 +139,19 @@ export default function LiveVideoCall({ title = 'Live Video Call', subtitle, onC
       {!connected && (
         <div className="mx-4 mt-3 grid gap-3 rounded-xl bg-white/5 p-3 sm:grid-cols-2">
           <div>
-            <p className="mb-1 text-[11px] font-semibold tracking-wide text-white/50 uppercase">Your code (share with the other device)</p>
+            <p className="mb-1 text-[11px] font-semibold tracking-wide text-white/50 uppercase">Your code — read it to the other device</p>
             <div className="flex items-center gap-2">
-              <code className="min-w-0 flex-1 truncate rounded-lg bg-black/40 px-3 py-2 font-mono text-sm text-white/90">{peerId ?? 'generating…'}</code>
-              <button type="button" onClick={copyCode} disabled={!peerId} aria-label="Copy code" className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 text-white/80 hover:bg-white/20 disabled:opacity-40">
-                {copied ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
+              <code className="min-w-0 flex-1 rounded-lg bg-black/40 px-3 py-2 text-center font-mono text-2xl font-bold tracking-[0.35em] text-white">{peerId ?? '••••••'}</code>
+              <button type="button" onClick={copyCode} disabled={!peerId} aria-label="Copy code" className="flex h-11 w-11 items-center justify-center rounded-lg bg-white/10 text-white/80 hover:bg-white/20 disabled:opacity-40">
+                {copied ? <Check className="h-5 w-5" aria-hidden="true" /> : <Copy className="h-5 w-5" aria-hidden="true" />}
               </button>
             </div>
           </div>
           <div>
-            <p className="mb-1 text-[11px] font-semibold tracking-wide text-white/50 uppercase">Connect to a device</p>
+            <p className="mb-1 text-[11px] font-semibold tracking-wide text-white/50 uppercase">Enter the other device’s 6-char code</p>
             <div className="flex items-center gap-2">
-              <input value={remoteInput} onChange={(e) => setRemoteInput(e.target.value)} placeholder="Paste the other device’s code" className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none" />
-              <button type="button" onClick={placeCall} disabled={!peerId || !remoteInput.trim() || status === 'calling'} className="flex items-center gap-1.5 rounded-lg bg-plum-700 px-4 py-2 text-sm font-semibold text-white hover:bg-plum-600 disabled:opacity-40">
+              <input value={remoteInput} onChange={(e) => setRemoteInput(e.target.value.toUpperCase())} maxLength={12} placeholder="e.g. 4F7K2Q" className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/40 px-3 py-2 text-center font-mono text-xl tracking-[0.3em] text-white placeholder:tracking-normal placeholder:text-white/30 focus:outline-none" />
+              <button type="button" onClick={placeCall} disabled={!peerId || !remoteInput.trim() || status === 'calling'} className="flex items-center gap-1.5 rounded-lg bg-plum-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-plum-600 disabled:opacity-40">
                 <PhoneCall className="h-4 w-4" aria-hidden="true" /> Call
               </button>
             </div>

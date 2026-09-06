@@ -127,7 +127,7 @@ export default function VideoCheck() {
             className="flex items-center justify-center gap-1.5 rounded-lg bg-plum-800 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-plum-700 disabled:opacity-60"
           >
             <Shuffle className="h-4 w-4" aria-hidden="true" />
-            {selecting ? 'Selecting…' : 'Start Random Video Check'}
+            {selecting ? 'Selecting…' : 'Start Random Video Check (Demo)'}
           </button>
         </div>
         <p className="mt-2 flex items-center gap-1.5 text-[11px] text-plum-950/50">
