@@ -14,11 +14,18 @@ import { PERMISSIONS } from '../data/rbac.js'
 import { record as recordAudit } from './auditService.js'
 import { loadModels, detectFaces, alignFace, computeEmbedding, PROVIDER_INFO } from './faceRecognitionProvider.js'
 import { enroll as vaultEnroll, getEnrollmentMeta } from './biometricVault.js'
+import { loadStore, saveStore } from './persist.js'
 import { INSTITUTION_STUDENTS, TODAYS_ATTENDANCE, ATTENTION_ITEMS, CLASSES, INSTITUTION_PROFILE, INSTITUTION_STAFF, INSTITUTION_DOCUMENTS, UPCOMING_INSPECTION, READINESS_CHECKLIST } from '../data/institutionData.js'
 
 export { PROVIDER_INFO }
 
-let students = INSTITUTION_STUDENTS.map((s) => ({ ...s }))
+// Student roster snapshotted to localStorage (persist.js). Only non-sensitive
+// fields are stored — the faceStatus FLAG persists, but biometric templates
+// never leave the in-memory biometricVault.
+const STUDENTS_KEY = 'students'
+
+let students = loadStore(STUDENTS_KEY, () => INSTITUTION_STUDENTS.map((s) => ({ ...s })))
+function persistStudents() { saveStore(STUDENTS_KEY, students) }
 
 export { CLASSES }
 
@@ -137,6 +144,7 @@ export async function addInstitutionStudent(input) {
     status: 'active', faceStatus: 'not_enrolled', faceEnrolled: false, attendancePct: 0,
   }
   students = [record, ...students]
+  persistStudents()
   recordAudit('STUDENT_CREATED', { entityId: id, entity: 'Student', metadata: { name: record.name, class: record.class } })
   return { ...record }
 }
@@ -155,6 +163,7 @@ export async function updateInstitutionStudent(id, patch) {
   if (Object.keys(fieldErrors).length) { const e = new Error('Validation failed'); e.fieldErrors = fieldErrors; throw e }
   const allowed = ['name', 'class', 'section', 'rollNo', 'dob', 'gender', 'guardianName', 'contact']
   for (const k of allowed) if (patch[k] != null) s[k] = typeof patch[k] === 'string' ? patch[k].trim() : patch[k]
+  persistStudents()
   recordAudit('STUDENT_UPDATED', { entityId: id, metadata: { name: s.name, class: s.class } })
   return { ...s }
 }
@@ -180,6 +189,7 @@ export async function enrollStudentFace(id, { samples = 3 } = {}) {
   vaultEnroll(id, embeddings) // embeddings never leave the vault boundary
   s.faceStatus = 'enrolled'
   s.faceEnrolled = true
+  persistStudents() // only the status FLAG is persisted, never the templates
   recordAudit('FACE_ENROLLED', { entityId: id, metadata: { name: s.name, samples } })
   return { student: { ...s }, enrollment: getEnrollmentMeta(id) } // meta only, no templates
 }
@@ -192,6 +202,7 @@ export async function setStudentFaceStatus(id, faceStatus) {
   if (!s) throw new NotFoundError(`Student ${id} not found`)
   s.faceStatus = faceStatus
   s.faceEnrolled = faceStatus === 'enrolled'
+  persistStudents()
   recordAudit('FACE_ENROLLMENT_STATUS', { entityId: id, metadata: { name: s.name, status: faceStatus } })
   return { ...s }
 }
@@ -202,6 +213,7 @@ export async function setInstitutionStudentStatus(id, status) {
   const s = students.find((x) => x.id === id)
   if (!s) throw new NotFoundError(`Student ${id} not found`)
   s.status = status
+  persistStudents()
   recordAudit(status === 'active' ? 'STUDENT_REACTIVATED' : 'STUDENT_DEACTIVATED', { entityId: id, metadata: { name: s.name } })
   return { ...s }
 }

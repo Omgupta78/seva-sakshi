@@ -16,6 +16,7 @@ import { delay, NotFoundError } from './apiClient.js'
 import { requireAnyPermission, getActor } from './authz.js'
 import { PERMISSIONS } from '../data/rbac.js'
 import { record as recordAudit } from './auditService.js'
+import { loadStore, saveStore } from './persist.js'
 import { INSTITUTION_CAMERAS } from '../data/institutionCctvData.js'
 
 const CCTV_READ = [PERMISSIONS.VIEW_CCTV, PERMISSIONS.VIEW_ASSIGNED_CCTV, PERMISSIONS.VIEW_OWN_CCTV]
@@ -75,7 +76,8 @@ export async function requestInstitutionPlayback(cameraId) {
 }
 
 // --- inspector snapshot evidence -----------------------------------------
-const cameraEvidence = []
+const CAMERA_EVIDENCE_KEY = 'camera-evidence'
+let cameraEvidence = loadStore(CAMERA_EVIDENCE_KEY, () => [])
 
 /**
  * Inspector attaches a camera snapshot as evidence during an inspection. The
@@ -96,6 +98,7 @@ export async function attachCameraEvidence({ inspectionId, cameraId, area, note 
     kind: 'camera-snapshot',
   }
   cameraEvidence.unshift(item)
+  saveStore(CAMERA_EVIDENCE_KEY, cameraEvidence)
   recordAudit('CAMERA_EVIDENCE_CAPTURED', { entityId: inspectionId ?? item.id, metadata: { camera: cameraId, area: item.area } })
   return item
 }

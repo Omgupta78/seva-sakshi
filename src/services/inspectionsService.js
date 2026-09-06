@@ -5,14 +5,20 @@ import { validateInspectionInput } from '../data/inspectionModels.js'
 import { requirePermission } from './authz.js'
 import { PERMISSIONS } from '../data/rbac.js'
 import { record as recordAudit } from './auditService.js'
+import { loadStore, saveStore } from './persist.js'
 
-// In-memory store — see apiClient.js for why, and how to swap for a real API.
-// Stands in for what would be four related tables in a real backend:
-// inspections, inspection_assignments (assignedTeamId + timeline entries),
-// inspection_checklists (embedded per inspection), inspection_evidence
-// (embedded per inspection), inspection_reports (embedded per inspection).
-let store = [...INSPECTIONS]
+// Store snapshotted to localStorage (persist.js) so prototype data survives a
+// hard reload, keeping the same shape a real backend would return. Stands in
+// for what would be four related tables in a real backend: inspections,
+// inspection_assignments (assignedTeamId + timeline), inspection_checklists,
+// inspection_evidence, inspection_reports (all embedded per inspection).
+const PERSIST_KEY = 'inspections'
+let store = loadStore(PERSIST_KEY, () => [...INSPECTIONS])
 let nextIdNum = store.length + 1
+
+function persist() {
+  saveStore(PERSIST_KEY, store)
+}
 
 function nowIso() {
   return new Date().toISOString().slice(0, 19)
@@ -48,6 +54,7 @@ function appendTimeline(insp, stage, actor) {
 }
 
 function saveAndResolve(idx) {
+  persist() // snapshot after every mutation that routes through here
   return resolveInspection(store[idx])
 }
 
@@ -153,6 +160,7 @@ export async function createInspection(input) {
     timeline,
   }
   store = [record, ...store]
+  persist()
   recordAudit('CREATE_INSPECTION', { entityId: record.id, projectId: record.projectId, metadata: { type: record.type } })
   return resolveInspection(record)
 }
@@ -454,4 +462,5 @@ export async function reviewInspection(id, { decision, reason = '', reviewedBy =
 export function resetInspectionsStore() {
   store = [...INSPECTIONS]
   nextIdNum = store.length + 1
+  persist()
 }

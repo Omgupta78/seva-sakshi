@@ -24,6 +24,7 @@ import { PERMISSIONS } from '../data/rbac.js'
 import { record as recordAudit } from './auditService.js'
 import { recognizeFace, MODE as RECOGNITION_MODE, MODE_LABEL as RECOGNITION_MODE_LABEL } from './recognitionProvider.js'
 import { RECOGNITION_STATUS, ATTENDANCE_SOURCE, SESSION_STATE_LABEL, REVIEW_RECOGNITION } from '../data/attendanceModels.js'
+import { loadStore, saveStore, maxIdNum } from './persist.js'
 import { INSTITUTION_STUDENTS, CLASSES, sectionOf } from '../data/institutionData.js'
 
 export { CLASSES }
@@ -39,8 +40,15 @@ export const RESULTS = ['present', 'absent', 'unknown']
 
 const roster = (cls) => INSTITUTION_STUDENTS.filter((s) => s.class === cls && s.status === 'active')
 
+const SESSIONS_KEY = 'attendance-sessions'
+const FINDINGS_KEY = 'attendance-findings'
 let seq = 100
-let sessions = seedSessions()
+// Snapshotted to localStorage so submitted attendance survives a hard reload;
+// no biometric data is stored — only {studentId, name, result, confidence,
+// recognitionStatus, source, timestamp} per student.
+let sessions = loadStore(SESSIONS_KEY, seedSessions)
+seq = Math.max(seq, maxIdNum(sessions) + 1)
+function persistSessions() { saveStore(SESSIONS_KEY, sessions) }
 
 function nowISO() { return new Date().toISOString() }
 function today() { return new Date().toISOString().slice(0, 10) }
@@ -125,6 +133,7 @@ export async function createAttendanceSession({ cls, sessionType = 'morning' }) 
     createdAt: nowISO(), submittedAt: null,
   }
   sessions = [s, ...sessions]
+  persistSessions()
   recordAudit('ATTENDANCE_SESSION_CREATED', { entityId: s.id, metadata: { class: cls, session: type.label } })
   return decorate(s)
 }
@@ -135,6 +144,7 @@ export async function startAttendanceSession(id) {
   const s = sessions.find((x) => x.id === id)
   if (!s) throw new NotFoundError(`Session ${id} not found`)
   s.status = 'in-progress'
+  persistSessions()
   recordAudit('ATTENDANCE_STARTED', { entityId: id, metadata: { class: s.class } })
   return decorate(s)
 }
@@ -178,6 +188,7 @@ export async function runRecognition(id) {
     }
   }))
   s.status = 'review'
+  persistSessions()
   const c = counts(s.students)
   recordAudit('FACE_MATCH_RESULT', { entityId: id, metadata: { class: s.class, present: c.present, absent: c.absent, review: c.unknown, mode: RECOGNITION_MODE } })
   return decorate(s)
@@ -206,6 +217,7 @@ export async function correctResult(id, studentId, newResult, reason) {
   st.teacherOverride = true
   st.teacherOverrideReason = reason?.trim() || 'Teacher review'
   st.correction = { previousValue: from, newValue: newResult, reason: reason?.trim() || 'Teacher review', changedBy: getActor().name, changedAt: nowISO(), role: getActor().role }
+  persistSessions()
   recordAudit('ATTENDANCE_CORRECTED', { entityId: id, metadata: { student: st.name, from, to: newResult, reason: reason?.trim() || undefined } })
   return decorate(s)
 }
@@ -237,6 +249,7 @@ export async function submitAttendanceSession(id, { override = false } = {}) {
   s.submittedAt = nowISO()
   s.endTime = new Date().toTimeString().slice(0, 5)
   s.overrideUsed = unresolved > 0 && override
+  persistSessions()
   const c = counts(s.students)
   recordAudit('ATTENDANCE_SUBMITTED', { entityId: id, metadata: { class: s.class, present: c.present, absent: c.absent, unresolved, override: s.overrideUsed || undefined } })
   return decorate(s)
@@ -331,7 +344,7 @@ export async function getStudentAttendanceProfile(studentId) {
 }
 
 // --- inspector verification -----------------------------------------------
-const findings = []
+let findings = loadStore(FINDINGS_KEY, () => [])
 
 /**
  * Inspector records an independent attendance verification finding. This never
@@ -351,6 +364,7 @@ export async function recordVerificationFinding({ inspectionId, cls, reportedPct
     by: getActor().name, role: getActor().role, at: nowISO(),
   }
   findings.unshift(finding)
+  saveStore(FINDINGS_KEY, findings)
   recordAudit('ATTENDANCE_VERIFICATION_FINDING', { entityId: inspectionId ?? finding.id, metadata: { class: cls, reported: `${reportedPct}%`, observed: `${observedPct}%`, discrepancy: `${discrepancy}%` } })
   return finding
 }
