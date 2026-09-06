@@ -331,11 +331,13 @@ export function createCameraBroadcast({ code, stream, onStatus, onError }) {
   let peer = null
   let destroyed = false
   let reconnects = 0
+  let claimRetries = 0 // reclaiming the fixed camera id past a stale/ghost peer
+  let claimTimer = null
   const calls = new Set()
 
   function build() {
     peer = new Peer(cameraPeerId(code), peerOptions())
-    peer.on('open', () => { reconnects = 0; onStatus?.('online') })
+    peer.on('open', () => { reconnects = 0; claimRetries = 0; if (claimTimer) { clearTimeout(claimTimer); claimTimer = null } onStatus?.('online') })
     peer.on('call', (call) => {
       // A viewer wants the feed — answer immediately with our camera stream.
       try { call.answer(stream) } catch (e) { onError?.(mapError(e)); return }
@@ -351,7 +353,22 @@ export function createCameraBroadcast({ code, stream, onStatus, onError }) {
       else onStatus?.('disconnected')
     })
     peer.on('error', (e) => {
-      if (e?.type === 'unavailable-id') { onError?.('This camera code is already broadcasting from another device. Pick a different code.'); return }
+      if (e?.type === 'unavailable-id') {
+        // A camera MUST keep its fixed code (viewers look it up by that id), so
+        // we can't fall back to a random one. On the shared public broker the
+        // id is usually held by our OWN stale/ghost peer from a previous run,
+        // which the broker frees after a ~60s timeout — so keep retrying to
+        // reclaim it (up to ~90s) rather than giving up.
+        if (!destroyed && claimRetries < 22) {
+          claimRetries += 1
+          onStatus?.('reserving', claimRetries)
+          try { peer?.destroy() } catch { /* noop */ }
+          claimTimer = setTimeout(() => { if (!destroyed) build() }, 4000)
+          return
+        }
+        onError?.('This camera code is busy on the signaling broker (a previous session is still held). Wait about a minute and try again, pick a different code, or use your own signaling server.')
+        return
+      }
       onError?.(mapError(e))
     })
   }
@@ -361,6 +378,7 @@ export function createCameraBroadcast({ code, stream, onStatus, onError }) {
     get cameraId() { return CAM_PREFIX + normalizeCode(code) },
     stop() {
       destroyed = true
+      if (claimTimer) { clearTimeout(claimTimer); claimTimer = null }
       calls.forEach((c) => { try { c.close() } catch { /* noop */ } })
       calls.clear()
       try { peer?.destroy() } catch { /* noop */ }
@@ -395,7 +413,7 @@ export function createCameraViewer({ code, onStream, onStatus, onError }) {
     call.on('close', () => { clearTimer(); stopWatch(); onStatus?.('ended') })
     call.on('error', (e) => { clearTimer(); stopWatch(); onError?.(mapError(e)) })
     // If the feed never arrives, tell the user rather than spin forever.
-    timer = setTimeout(() => { if (!destroyed) onError?.('No live phone feed for this camera. On the phone, open the camera page and Start broadcasting under this code.') }, 15000)
+    timer = setTimeout(() => { if (!destroyed) onError?.('No live phone feed for this camera. On the phone, open the camera page and Start broadcasting under this code.') }, 9000)
   })
   peer.on('error', (e) => {
     if (e?.type === 'peer-unavailable') { onError?.('No phone is broadcasting this camera right now.'); return }

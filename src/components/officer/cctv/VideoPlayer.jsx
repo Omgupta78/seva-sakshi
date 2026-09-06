@@ -32,16 +32,33 @@ export default function VideoPlayer({ camera }) {
 
   // Try to attach a LIVE PHONE feed broadcasting under this camera's id. If a
   // phone is broadcasting (via /camera), its real video replaces the demo
-  // placeholder; otherwise this quietly fails and the honest placeholder shows.
+  // placeholder; otherwise the honest placeholder shows. Keeps retrying so it
+  // picks the feed up as soon as a phone comes online (or reconnects).
   useEffect(() => {
+    let stopped = false
+    let viewer = null
+    let retry = null
+    const attempt = () => {
+      if (stopped) return
+      viewer = createCameraViewer({
+        code: camera.id,
+        onStream: (s) => { if (!stopped) setPhoneStream(s) },
+        onStatus: (s) => {
+          if (s === 'ended' && !stopped) { // phone stopped/dropped → clear and look again
+            setPhoneStream(null)
+            try { viewer?.stop() } catch { /* noop */ }
+            retry = setTimeout(attempt, 5000)
+          }
+        },
+        onError: () => { // no phone yet (or a stale peer) → try again shortly
+          try { viewer?.stop() } catch { /* noop */ }
+          if (!stopped) retry = setTimeout(attempt, 5000)
+        },
+      })
+    }
     setPhoneStream(null)
-    const viewer = createCameraViewer({
-      code: camera.id,
-      onStream: (s) => setPhoneStream(s),
-      onStatus: () => {},
-      onError: () => {}, // no phone broadcasting → fall back to the normal player
-    })
-    return () => { try { viewer.stop() } catch { /* noop */ } setPhoneStream(null) }
+    attempt()
+    return () => { stopped = true; if (retry) clearTimeout(retry); try { viewer?.stop() } catch { /* noop */ } setPhoneStream(null) }
   }, [camera.id])
 
   useEffect(() => { if (phoneRef.current && phoneStream) phoneRef.current.srcObject = phoneStream }, [phoneStream])

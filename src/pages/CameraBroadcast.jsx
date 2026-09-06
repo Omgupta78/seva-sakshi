@@ -56,11 +56,13 @@ export default function CameraBroadcast() {
       stream: res.stream,
       onStatus: (s, n) => {
         if (s === 'online') setPhase('live')
-        if (s === 'viewer') setViewers(n ?? 0)
+        else if (s === 'reserving') setPhase('reserving')
+        else if (s === 'viewer') setViewers(n ?? 0)
       },
       onError: (msg) => { setError(msg); setPhase('error'); teardownCast() },
     })
-    setPhase('live')
+    // Stay in 'starting' until the broker confirms 'online' — never claim LIVE
+    // before the camera code is actually registered.
   }
 
   async function switchCamera() {
@@ -83,6 +85,7 @@ export default function CameraBroadcast() {
   }
 
   const live = phase === 'live'
+  const broadcasting = phase === 'live' || phase === 'reserving'
 
   return (
     <div className="min-h-screen bg-[#0b0a14] text-white">
@@ -93,8 +96,8 @@ export default function CameraBroadcast() {
             <p className="text-sm font-extrabold">Seva Sakshi — Phone Camera</p>
             <p className="text-[11px] text-white/55">Use this phone as a live monitoring camera</p>
           </div>
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${live ? 'bg-red-600/90 text-white' : 'bg-white/10 text-white/70'}`}>
-            {live ? <><Radio className="h-3 w-3" aria-hidden="true" /> LIVE</> : 'Offline'}
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${live ? 'bg-red-600/90 text-white' : phase === 'reserving' || phase === 'starting' ? 'bg-amber-500/90 text-black' : 'bg-white/10 text-white/70'}`}>
+            {live ? <><Radio className="h-3 w-3" aria-hidden="true" /> LIVE</> : phase === 'reserving' ? <><Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> Reserving…</> : phase === 'starting' ? <><Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> Starting…</> : 'Offline'}
           </span>
         </header>
 
@@ -106,6 +109,12 @@ export default function CameraBroadcast() {
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/55">
               {phase === 'starting' ? <><Loader2 className="h-8 w-8 animate-spin" aria-hidden="true" /><p className="text-sm">Starting camera…</p></>
                 : <><VideoOff className="h-8 w-8" aria-hidden="true" /><p className="text-sm">Camera off</p></>}
+            </div>
+          )}
+          {phase === 'reserving' && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/55 text-center text-white">
+              <Loader2 className="h-7 w-7 animate-spin" aria-hidden="true" />
+              <p className="max-w-xs px-4 text-xs">Reserving camera code <span className="font-mono font-semibold">{code}</span>… a previous session on the shared broker is still clearing (up to ~1 min).</p>
             </div>
           )}
           {live && (
@@ -125,14 +134,14 @@ export default function CameraBroadcast() {
         <div className="mt-4 space-y-3 px-4">
           <div>
             <label htmlFor="cam-code" className="mb-1 block text-xs font-semibold text-white/60">Camera code (match the camera you open in the dashboard)</label>
-            <input id="cam-code" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} disabled={live}
+            <input id="cam-code" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} disabled={broadcasting}
               className="w-full rounded-lg border border-white/15 bg-black/40 px-3 py-2.5 text-center font-mono text-lg tracking-widest text-white focus:outline-none disabled:opacity-60" />
           </div>
 
           {error && <p className="rounded-lg bg-red-500/15 px-3 py-2 text-xs text-red-200">{error}</p>}
 
           <div className="flex items-center gap-2">
-            {!live ? (
+            {!broadcasting ? (
               <button type="button" onClick={startBroadcast} disabled={!code.trim() || phase === 'starting'} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#138808] py-3 text-sm font-bold text-white hover:bg-[#0f6b06] disabled:opacity-50">
                 <Video className="h-4 w-4" aria-hidden="true" /> Start broadcasting
               </button>
